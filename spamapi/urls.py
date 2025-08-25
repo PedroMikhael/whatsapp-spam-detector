@@ -6,7 +6,6 @@ from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from django.views.generic import RedirectView
 
-# Configuração do Swagger
 schema_view = get_schema_view(
     openapi.Info(
         title="Zap Spam Detector API",
@@ -18,8 +17,7 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
-    # Redireciona a raiz para o Swagger
-    path('', RedirectView.as_view(url='/swagger/', permanent=True)),
+    path('', RedirectView.as_view(url='/swagger/', permanent=True)),  # redireciona a home para Swagger
     path('admin/', admin.site.urls),
     path('api/spam/', verificar_spam, name="verificar_spam"),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
