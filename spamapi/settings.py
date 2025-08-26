@@ -71,3 +71,5 @@ TEMPLATES = [
         },
     },
 ]
+
+WHATSAPP_VERIFY_TOKEN ='token_do_meu_zap_spam_12345'
