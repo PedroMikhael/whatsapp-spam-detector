@@ -21,7 +21,7 @@ def verificar_spam(request):
     if request.method == 'GET':
         verify_token = settings.WHATSAPP_VERIFY_TOKEN
         if request.query_params.get('hub.verify_token') == verify_token:
-            return Response(int(request.query_params.get('hub.challenge')), status=200)
+            return Response(request.query_params.get('hub.challenge'), status=200)
         else:
             return Response({"error": "Token de verificação inválido"}, status=403)
 
