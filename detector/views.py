@@ -15,38 +15,27 @@ from .services import verificar_texto_spam
     responses={200: SpamResponseSerializer},
     operation_description="Verifica se um texto é spam"
 )
-@api_view(['GET', 'POST'])  # webhook precisa aceitar GET e POST
+@api_view(['GET', 'POST'])
 def verificar_spam(request):
-    """
-    Endpoint usado como Webhook do WhatsApp e também para verificar spam via POST.
-    """
-
-    # 🔹 1) LÓGICA DO GET → validação do webhook do WhatsApp (Meta)
+    # 🔹 Verificação do Webhook (GET)
     if request.method == 'GET':
-        verify_token = getattr(settings, "WHATSAPP_VERIFY_TOKEN", "tokenfacil123")
-        mode = request.query_params.get("hub.mode")
-        token = request.query_params.get("hub.verify_token")
-        challenge = request.query_params.get("hub.challenge")
-
-        if mode == "subscribe" and token == verify_token:
-            print("✅ Webhook verificado com sucesso pelo Meta")
-            return HttpResponse(challenge, status=200)  # tem que ser texto puro
+        verify_token = settings.WHATSAPP_VERIFY_TOKEN
+        if request.query_params.get('hub.verify_token') == verify_token:
+            return Response(int(request.query_params.get('hub.challenge')), status=200)
         else:
-            return HttpResponse("Token de verificação inválido", status=403)
+            return Response({"error": "Token de verificação inválido"}, status=403)
 
-    # 🔹 2) LÓGICA DO POST → recebe mensagens reais do WhatsApp
+    # 🔹 Recebimento de mensagens (POST)
     if request.method == 'POST':
         dados = request.data
 
-        # Se veio do WhatsApp (mensagem real)
-        if 'entry' in dados:
+        if 'entry' in dados:  # Chamado pelo WhatsApp
             try:
                 texto_recebido = dados['entry'][0]['changes'][0]['value']['messages'][0]['text']['body']
                 dados_para_serializer = {'texto': texto_recebido}
             except (KeyError, IndexError):
-                return Response(status=204)  # ignora notificações sem mensagem
-        else:
-            # 🔹 Se for teste via Swagger, ainda funciona
+                return Response(status=204)
+        else:  # Chamado pelo Swagger
             if '_content' in dados:
                 dados = json.loads(dados['_content'][0])
             dados_para_serializer = dados
