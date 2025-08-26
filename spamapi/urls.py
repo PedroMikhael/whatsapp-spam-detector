@@ -17,8 +17,8 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
-    path('', RedirectView.as_view(url='/swagger/', permanent=True)),  # redireciona a home para Swagger
+    path('', RedirectView.as_view(url='/swagger/', permanent=True)),  # redireciona home para Swagger
     path('admin/', admin.site.urls),
-    path('api/spam/', verificar_spam, name="verificar_spam"),
+    path('api/spam/', verificar_spam, name="verificar_spam"),  # Webhook + verificação
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
 ]
