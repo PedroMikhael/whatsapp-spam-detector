@@ -4,7 +4,7 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-(bcp0_$=z9nylls(cp8p%!it+*(d2ap3p(9t40^%s@_gg+1t#f'
-DEBUG = False  # Produção
+DEBUG = False  
 ALLOWED_HOSTS = ['18.221.25.182', '127.0.0.1', 'localhost', '.ngrok-free.app', 'chatbot-spam.duckdns.org']
 
 INSTALLED_APPS = [
@@ -43,7 +43,7 @@ DATABASES = {
 }
 
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'static'  # para collectstatic
+STATIC_ROOT = BASE_DIR / 'static' 
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
@@ -59,12 +59,12 @@ CORS_ALLOWED_ORIGINS = [
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],  # se você tiver templates personalizados, coloque o caminho aqui
-        'APP_DIRS': True,  # isso permite que Django encontre templates dentro das apps
+        'DIRS': [], 
+        'APP_DIRS': True,  
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
-                'django.template.context_processors.request',  # necessário para admin e Swagger
+                'django.template.context_processors.request',  # 
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
@@ -88,8 +88,8 @@ UTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Token usado para validar o webhook do WhatsApp
+
 WHATSAPP_VERIFY_TOKEN = "tokenfacil123"
 
-WHATSAPP_ACCESS_TOKEN = 'EAFUA6anUjL0BPXLD70ZCWZBvuBiZBvdZAO72ZBOdiFsV3QuLPTMZAzvShjl8gkkUzg1sK3dqgH4R3kCvgAfxnjBES6aV1rYZCgZA0JEgyUfUfLGZAUSKL01zVBUyoQEjZA8CXVL6Wk73KKs05PDcxZC0tAB3erh9qsLH7nci2ZAyNr64Et7kI8RRaZBnvxitqNI5TS18nW8uX5XuLzvKItSBKpWyrZBeuaMImoRleAK4TufwjS3uMWiW8wFdEAinGFGcBSey4ZD'
+WHATSAPP_ACCESS_TOKEN = 'EAFUA6anUjL0BPfnvbN72YffEJaU8quQRxRBycai7yY0SsX0vOqf1dZCGPWzXJSMZCWa5ZBSWUNEYV8YBmSX4mmvcZBWnaJLQlxssz93nNMVSh1Lkg1MNTv5goPc3Nx7DlUQpspQZBZALovRhpw3diKFU59xEGKfPsjZBRQj9v5IZBZAbuc1cUAsywETOh6feGyJI6fDDdfw2yIvXQFyRxCzgZBbO3Bo8f6D8tYdA1qELyuiB1v3XPLxoarE5vGPR27dwZDZD'
 WHATSAPP_PHONE_NUMBER_ID = '765888489941122'
