@@ -36,18 +36,16 @@ def verificar_spam(request):
 @csrf_exempt
 def webhook_view(request):
     if request.method == "GET":
-        # Verificação inicial do WhatsApp
-        verify_token = "meu_token"  # escolha um token e use n  o Meta
         mode = request.GET.get("hub.mode")
         token = request.GET.get("hub.verify_token")
         challenge = request.GET.get("hub.challenge")
-
-        if mode == "subscribe" and token == verify_token:
+        
+        if mode == "subscribe" and token == VERIFY_TOKEN:
             return HttpResponse(challenge, status=200)
         else:
-            return JsonResponse({"error": "Token inválido"}, status=403)
+            return HttpResponse("Token inválido", status=403)
 
     elif request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
-        print("📩 Recebi mensagem:", data)
-        return JsonResponse({"status": "mensagem recebida"})
+        # Aqui você recebe mensagens
+        print("Mensagem recebida:", request.body)
+        return HttpResponse("OK", status=200)
