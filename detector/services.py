@@ -7,87 +7,120 @@ from .constants import PONTUACAO_SPAM, PADROES_REGEX_SPAM, LIMITE_SPAM_NORMALIZA
 
 
 
-def analisar_palavras_chave(texto_lower: str, detalhes: list) -> int:
+def analisar_categorias(texto_lower: str, detalhes: list) -> int:
     pontos = 0
-    for palavra, valor in PONTUACAO_SPAM.items():
-        if palavra in texto_lower:
-            ocorrencias = texto_lower.count(palavra)
-            pontos += valor * ocorrencias
-            detalhes.append(f"Palavra-chave: '{palavra}' ({ocorrencias}x) -> +{valor * ocorrencias} pts")
+    categorias_detectadas = set()
+    
+    for categoria, info in CATEGORIAS_SPAM.items():
+        for palavra in info["palavras"]:
+            if palavra in texto_lower:
+                ocorrencias = texto_lower.count(palavra)
+                pontos += info["peso"] * ocorrencias
+                detalhes.append(f"[{categoria.upper()}] Palavra detectada: '{palavra}' ({ocorrencias}x)")
+                categorias_detectadas.add(categoria)
+    
+    # Bônus por múltiplas categorias
+    if len(categorias_detectadas) > 1:
+        bonus = 5 * (len(categorias_detectadas) - 1)
+        pontos += bonus
+        detalhes.append(f"BÔNUS: Múltiplas categorias ({len(categorias_detectadas)}) -> +{bonus} pts")
+    
     return pontos
 
-def analisar_padroes_regex(texto: str, detalhes: list) -> int:
+# -----------------------------
+# Regex suspeitos
+# -----------------------------
+def analisar_regex(texto: str, detalhes: list) -> int:
     pontos = 0
-    for padrao, valor in PADROES_REGEX_SPAM.items():
+    for padrao, peso in PADROES_REGEX_SPAM.items():
         matches = re.findall(padrao, texto, re.IGNORECASE)
         if matches:
-            ocorrencias = len(matches)
-            pontos += valor * ocorrencias
-            detalhes.append(f"Padrão Regex: '{padrao}' ({ocorrencias}x) -> +{valor * ocorrencias} pts")
+            pontos += peso * len(matches)
+            detalhes.append(f"Padrão suspeito: '{padrao}' ({len(matches)}x)")
     return pontos
 
+# -----------------------------
+# Formato e estilo
+# -----------------------------
 def analisar_formato(texto: str, detalhes: list) -> int:
     pontos = 0
-    letras = sum(1 for char in texto if char.isalpha())
-    if not letras: return 0
+    letras = sum(c.isalpha() for c in texto)
+    if letras == 0:
+        return 0
 
-    
-    maiusculas = sum(1 for char in texto if char.isupper())
+    maiusculas = sum(c.isupper() for c in texto)
     percentual_caps = (maiusculas / letras) * 100
     if percentual_caps > 50:
         pontos += 8
-        detalhes.append(f"ALERTA: Excesso de maiúsculas ({percentual_caps:.1f}%) -> +8 pts")
-    
-    
-    especiais = sum(1 for char in texto if not char.isalnum() and not char.isspace())
+        detalhes.append(f"Excesso de maiúsculas ({percentual_caps:.1f}%)")
+
+    especiais = sum(1 for c in texto if not c.isalnum() and not c.isspace())
     percentual_especiais = (especiais / len(texto)) * 100
-    if percentual_especiais > 20: 
+    if percentual_especiais > 20:
         pontos += 10
-        detalhes.append(f"ALERTA: Excesso de caracteres especiais ({percentual_especiais:.1f}%) -> +10 pts")
-        
+        detalhes.append(f"Excesso de caracteres especiais ({percentual_especiais:.1f}%)")
+
+    emojis = re.findall(r"[^\w\s,]", texto)
+    if len(emojis) > 5:
+        pontos += 5
+        detalhes.append(f"Excesso de emojis/símbolos ({len(emojis)})")
+
     return pontos
 
+# -----------------------------
+# Bônus combinatório
+# -----------------------------
 def aplicar_bonus_combinacao(detalhes: list) -> int:
     pontos = 0
-   
-    achou_link = any("link" in d.lower() for d in detalhes)
-    achou_termo_financeiro = any("dinheiro" in d.lower() or "pix" in d.lower() or "crédito" in d.lower() for d in detalhes)
+    achou_link = any("https" in d.lower() for d in detalhes)
+    achou_financeiro = any(word in d.lower() for d in detalhes for word in ["dinheiro", "pix", "crédito", "transferência", "depósito"])
+    achou_urgencia = any(word in d.lower() for d in detalhes for word in ["urgente", "imediato", "agora"])
     
-    if achou_link and achou_termo_financeiro:
+    if achou_link and achou_financeiro:
+        pontos += 20
+        detalhes.append("Combinação: link + termo financeiro")
+    if achou_financeiro and achou_urgencia:
         pontos += 15
-        detalhes.append("BÔNUS: Combinação de link com termo financeiro -> +15 pts")
+        detalhes.append("Combinação: termo financeiro + urgência")
     return pontos
 
-
-
+# -----------------------------
+# Função principal “ML fake”
+# -----------------------------
 def verificar_texto_spam(texto: str) -> dict:
-    """
-    Verifica se um texto é spam usando uma lógica modular e aprimorada.
-    """
     detalhes = []
     texto_lower = texto.lower()
-    
-    
-    pontuacao_bruta = 0
-    pontuacao_bruta += analisar_palavras_chave(texto_lower, detalhes)
-    pontuacao_bruta += analisar_padroes_regex(texto, detalhes)
-    pontuacao_bruta += analisar_formato(texto, detalhes)
-    pontuacao_bruta += aplicar_bonus_combinacao(detalhes)
 
-    
-    numero_de_palavras = len(texto.split())
-    pontuacao_final_normalizada = 0
-    if numero_de_palavras > 0:
-        pontuacao_final_normalizada = (pontuacao_bruta / numero_de_palavras) * 10
-    
-    
-    is_spam = pontuacao_final_normalizada >= LIMITE_SPAM_NORMALIZADO
-    mensagem_final = f"Este texto parece ser {'spam' if is_spam else 'seguro'}. (Pontuação Final: {pontuacao_final_normalizada:.2f})"
+    pontos = 0
+    pontos += analisar_categorias(texto_lower, detalhes)
+    pontos += analisar_regex(texto, detalhes)
+    pontos += analisar_formato(texto, detalhes)
+    pontos += aplicar_bonus_combinacao(detalhes)
 
-   
+    numero_palavras = len(texto.split())
+    pontuacao_normalizada = (pontos / numero_palavras) * 10 if numero_palavras > 0 else pontos
+
+    # Convertendo para pseudo-probabilidade de 0 a 100%
+    probabilidade_spam = min(round(pontuacao_normalizada * 2), 100)
+
+    # Nível de risco
+    if probabilidade_spam >= 75:
+        nivel_risco = "Alto risco"
+    elif probabilidade_spam >= 40:
+        nivel_risco = "Médio risco"
+    else:
+        nivel_risco = "Baixo risco"
+
+    # Mensagem final estilosa
+    if probabilidade_spam >= 50:
+        mensagem_final = f"🚨 ALERTA: Esta mensagem parece ser SPAM! ({nivel_risco})"
+    else:
+        mensagem_final = f"✅ Esta mensagem parece ser segura. ({nivel_risco})"
+
     return {
-        "spam": is_spam,
-        "pontuacao": round(pontuacao_final_normalizada, 2),
+        "spam": probabilidade_spam >= 50,
+        "probabilidade": probabilidade_spam,
+        "nivel_risco": nivel_risco,
         "mensagem": mensagem_final,
         "detalhes": detalhes
     }
