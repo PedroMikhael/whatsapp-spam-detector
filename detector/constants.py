@@ -29,16 +29,34 @@ PONTUACAO_SPAM = {
     "marketing multinível": 10, "mlm": 10, "isso não é spam": 15
 }
 
-# Dicionário com a pontuação de cada padrão regex (COM ADIÇÕES)
-PADROES_REGEX_SPAM = {
-    r"(bit\.ly|tinyurl\.com|goo\.gl|cutt\.ly|is\.gd|t\.co)": 10, # Links encurtados
-    r"[\!]{2,}|[\?]{2,}": 5, # Excesso de pontuação
-    r"\b([A-Z]\.){3,}\b": 12, # Letras separadas por ponto (C.L.I.Q.U.E)
-    r"(\(?\d{2}\)?\s?)?(\d{4,5}\-?\d{4})": 3, # Números de telefone
-    r"\b[A-Z\s\.]{5,}\b": 10,  # Palavras em maiúsculas com espaços ou pontos entre (G R A T I S)
-    r"(?i)\b\w*[@$!#]\w*\b": 7, # Palavras com caracteres especiais no meio (C@ix@)
+# detector/constants.py - VERSÃO MELHORADA
+
+# ... (seu PONTUACAO_SPAM continua o mesmo) ...
+PONTUACAO_SPAM = {
+    # ...
 }
 
+# Adicionamos novos padrões e ajustamos os pontos
+PADROES_REGEX_SPAM = {
+    # Links
+    r"(https?://\S*)": 5,  # Qualquer link http/https já começa com 5 pontos
+    r"(bit\.ly|tinyurl\.com|goo\.gl|cutt\.ly|is\.gd|t\.co)": 15, # Encurtadores têm pontuação mais alta
+    
+    # Formatação suspeita
+    r"[\!¡\?¿]{3,}": 7,  # 3 ou mais pontos de exclamação/interrogação seguidos
+    r"\b([A-Z]\.){3,}\b": 12, # Letras separadas por ponto (P.R.O.M.O)
+    r"\b[A-Z\s]{5,}\b": 10,  # Palavras em maiúsculas com espaços (G R A T I S)
+    r"(?i)\b\w*[@$!#%&]\w*\b": 7, # Palavras com caracteres especiais no meio (C@ix@)
+    
+    # Conteúdo suspeito
+    r"(\(?\d{2}\)?\s?)?(\d{5}\-?\d{4})": 3, # Números de telefone (9 dígitos)
+    r"\b\d{3}\.\d{3}\.\d{3}-\d{2}\b": 8, # CPF
+    r"pix|transferência|depósito": 8, # Termos de pagamento explícitos
+    r"urgente|imediato|agora": 7, # Senso de urgência
+}
+
+# Limite de decisão (pode ser ajustado após testes)
+LIMITE_SPAM_NORMALIZADO = 15.0
 # <<< MUDANÇA PRINCIPAL AQUI >>>
 # Aumentamos o limite para tornar o filtro menos rígido.
 LIMITE_SPAM_NORMALIZADO = 11.5
