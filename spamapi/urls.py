@@ -1,27 +1,16 @@
 from django.contrib import admin
+# Importe re_path em vez de path
 from django.urls import path
-from detector.views import verificar_spam
-from rest_framework import permissions
-from drf_yasg.views import get_schema_view
-from drf_yasg import openapi
+from django.urls import re_path
 from django.views.generic import RedirectView
-from detector.views import verificar_spam, webhook_view
-
-
-schema_view = get_schema_view(
-    openapi.Info(
-        title="Zap Spam Detector API",
-        default_version='v1',
-        description="API para detectar spam em mensagens",
-    ),
-    public=True,
-    permission_classes=(permissions.AllowAny,),
-)
+from detector.views import webhook_whatsapp
 
 urlpatterns = [
-    path('', RedirectView.as_view(url='/swagger/', permanent=True)),  # redireciona home para Swagger
     path('admin/', admin.site.urls),
-    path('api/spam/', verificar_spam, name="verificar_spam"),  # Webhook + verificação
-    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    path("webhook/", webhook_view, name="webhook"),
+
+    # Esta linha agora aceita '/api/spam' E '/api/spam/'
+    re_path(r'^api/spam/?$', webhook_whatsapp, name="webhook_whatsapp"),
+
+    # Redireciona a página inicial para a URL do webhook para facilitar
+    path('', RedirectView.as_view(url='/api/spam/', permanent=False)),
 ]
