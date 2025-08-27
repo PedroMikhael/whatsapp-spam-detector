@@ -1,24 +1,31 @@
-# detector/views.py - VERSÃO DE TESTE SIMPLIFICADA
+# detector/views.py
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from django.http import HttpResponse
 
-@api_view(['GET', 'POST']) # Aceita GET e POST
+VERIFY_TOKEN = "tokenfacil123"  # o mesmo que você colocou no painel da Meta
+
+@api_view(['GET', 'POST'])
 def verificar_spam(request):
-    
-    # Se for a visita de verificação da Meta (GET)
-    if request.method == 'GET' and 'hub.challenge' in request.query_params:
-        # Responda "SIM" imediatamente, sem checar o token.
-        challenge = request.query_params.get('hub.challenge')
-        print(f"Desafio da Meta recebido: {challenge}. Respondendo com sucesso.")
-        return Response(challenge, status=200)
 
-    # Se for uma mensagem de SPAM (POST)
+    # Verificação inicial do webhook (Meta envia GET)
+    if request.method == 'GET':
+        mode = request.query_params.get("hub.mode")
+        token = request.query_params.get("hub.verify_token")
+        challenge = request.query_params.get("hub.challenge")
+
+        if mode == "subscribe" and token == VERIFY_TOKEN:
+            print(f"Webhook verificado com sucesso! challenge={challenge}")
+            return Response(challenge, status=200)
+        else:
+            print("Token inválido na verificação do webhook")
+            return Response({"error": "Token inválido"}, status=403)
+
+    # Recebendo mensagens (Meta envia POST)
     if request.method == 'POST':
-        # Por enquanto, só vamos confirmar que recebemos e depois faremos a análise.
         print(f"Recebida mensagem para análise: {request.data}")
         return Response({"status": "mensagem recebida com sucesso"}, status=200)
 
-    # Se não for nenhum dos dois, retorne um erro.
     return Response({"error": "Requisição inválida"}, status=400)
