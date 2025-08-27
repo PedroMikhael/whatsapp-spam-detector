@@ -3,7 +3,7 @@ import requests
 import json
 import os
 from django.conf import settings
-from .constants import PONTUACAO_SPAM, PADROES_REGEX_SPAM, LIMITE_SPAM_NORMALIZADO
+from detector.constants import CATEGORIAS_SPAM, PADROES_REGEX_SPAM, LIMITE_SPAM_NORMALIZADO
 
 
 
