@@ -4,6 +4,9 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from django.http import HttpResponse
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 VERIFY_TOKEN = "tokenfacil123"  # o mesmo que você colocou no painel da Meta
 
@@ -29,3 +32,22 @@ def verificar_spam(request):
         return Response({"status": "mensagem recebida com sucesso"}, status=200)
 
     return Response({"error": "Requisição inválida"}, status=400)
+
+@csrf_exempt
+def webhook_view(request):
+    if request.method == "GET":
+        # Verificação inicial do WhatsApp
+        verify_token = "meu_token"  # escolha um token e use n  o Meta
+        mode = request.GET.get("hub.mode")
+        token = request.GET.get("hub.verify_token")
+        challenge = request.GET.get("hub.challenge")
+
+        if mode == "subscribe" and token == verify_token:
+            return HttpResponse(challenge, status=200)
+        else:
+            return JsonResponse({"error": "Token inválido"}, status=403)
+
+    elif request.method == "POST":
+        data = json.loads(request.body.decode("utf-8"))
+        print("📩 Recebi mensagem:", data)
+        return JsonResponse({"status": "mensagem recebida"})
