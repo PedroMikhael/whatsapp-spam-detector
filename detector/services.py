@@ -1,6 +1,7 @@
-
 import re
 from .constants import PONTUACAO_SPAM, PADROES_REGEX_SPAM, LIMITE_SPAM_NORMALIZADO
+import requests
+from django.conf import settings
 
 def calcular_percentual_maiusculas(texto: str) -> float:
     """Função auxiliar para calcular a porcentagem de letras maiúsculas."""
@@ -53,10 +54,10 @@ def verificar_texto_spam(texto: str) -> dict:
     pontuacao_final_normalizada = 0
     if numero_de_palavras > 0:
         pontuacao_final_normalizada = (pontuacao_bruta / numero_de_palavras) * 10
-    
+
     # 6. Verificação Final
     is_spam = pontuacao_final_normalizada >= LIMITE_SPAM_NORMALIZADO
-    
+
     mensagem_final = f"Este texto parece ser {'spam' if is_spam else 'seguro'}. (Pontuação Final: {pontuacao_final_normalizada:.2f})"
 
     # 7. Retorna o dicionário completo
@@ -66,3 +67,33 @@ def verificar_texto_spam(texto: str) -> dict:
         "mensagem": mensagem_final,
         "detalhes": detalhes
     }
+
+
+def enviar_mensagem_whatsapp(numero_destinatario: str, mensagem: str):
+    """
+    Envia uma mensagem de texto para um número de WhatsApp usando a API da Meta.
+    """
+    url = f"https://graph.facebook.com/v19.0/{settings.WHATSAPP_PHONE_NUMBER_ID}/messages"
+
+    headers = {
+        "Authorization": f"Bearer {settings.WHATSAPP_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    data = {
+        "messaging_product": "whatsapp",
+        "to": numero_destinatario,
+        "type": "text",
+        "text": {"body": mensagem},
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()  # Lança um erro se a resposta for 4xx ou 5xx
+
+        print("Resposta da Meta API:", response.json())
+        return True, response.json()
+
+    except requests.exceptions.RequestException as e:
+        print(f"Erro ao enviar mensagem via WhatsApp: {e}")
+        return False, str(e)

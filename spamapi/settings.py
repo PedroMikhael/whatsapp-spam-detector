@@ -3,8 +3,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-(bcp0_$=z9nylls(cp8p%!it+*(d2ap3p(9t40^%s@_gg+1t#f'
-DEBUG = True  # Produção
-ALLOWED_HOSTS = ['13.58.19.45', '127.0.0.1', 'localhost', '.ngrok-free.app']
+DEBUG = False  # Produção
+ALLOWED_HOSTS = ['18.221.25.182', '127.0.0.1', 'localhost', '.ngrok-free.app']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -43,7 +43,7 @@ DATABASES = {
 }
 
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'static/'  # para collectstatic
+STATIC_ROOT = BASE_DIR / 'static'  # para collectstatic
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
@@ -72,5 +72,8 @@ TEMPLATES = [
     },
 ]
 
-# Token usado pelo WhatsApp Webhook
+# Token usado para validar o webhook do WhatsApp
 WHATSAPP_VERIFY_TOKEN = "tokenfacil123"
+
+WHATSAPP_ACCESS_TOKEN = 'EAFUA6anUjL0BPV3vXG8ZCydhAZBJmsI98OTRMQ7JOcubLpKCR3oLZCzBKsZC6zZAJM9wTwPPZBMGox70CazN2yKmqNXmhf6MMCKyZCuMZAbj6fyTNO0R0SFIE9e7V1BcZC08ZBdEvWG5dZCJwi4Rurf4ycy7ujZBt6r64PdhDOizuLWMuwVCneeGJZAnLk3BLS2FscyZAc0zLlhPKdWBa6qAwXGqE3ni88xh3hxxuY8ZBaZBD5hRM019T5Y9ZCL8KDQqXRMBQZAwZDZD'
+WHATSAPP_PHONE_NUMBER_ID = '765888489941122'
