@@ -39,13 +39,15 @@ def webhook_view(request):
         mode = request.GET.get("hub.mode")
         token = request.GET.get("hub.verify_token")
         challenge = request.GET.get("hub.challenge")
-        
+
         if mode == "subscribe" and token == VERIFY_TOKEN:
-            return HttpResponse(challenge, status=200)
+            # IMPORTANTE: deve retornar o challenge como texto (string)
+            return JsonResponse(challenge, safe=False)
         else:
-            return HttpResponse("Token inválido", status=403)
+            return JsonResponse({"error": "Token inválido"}, status=403)
 
     elif request.method == "POST":
-        # Aqui você recebe mensagens
-        print("Mensagem recebida:", request.body)
-        return HttpResponse("OK", status=200)
+        import json
+        data = json.loads(request.body.decode("utf-8"))
+        print("📩 Recebi mensagem:", data)
+        return JsonResponse({"status": "mensagem recebida"})
