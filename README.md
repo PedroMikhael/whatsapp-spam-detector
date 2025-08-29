@@ -1,8 +1,9 @@
+
 # WhatsApp Spam Detector API 🤖
 
 A robust, rule-based API designed to detect spam in text messages, built with Python and Django, and deployed in a production-ready environment on AWS.
 
-This project was developed as an academic requirement for the computer Science course at UECE, under the supervision of Professor Rafael Lopes Gomes.
+This project was developed as an academic requirement for the Computer Science course at UECE, under the supervision of Professor Rafael Lopes Gomes.
 
 ---
 
@@ -13,6 +14,8 @@ This project was developed as an academic requirement for the computer Science c
 -   **WhatsApp Webhook Integration:** Fully integrated with the Meta for Developers platform to receive and respond to WhatsApp messages in real-time.
 -   **Production-Grade Deployment:** Deployed on Amazon Web Services (AWS) using a professional-grade server stack.
 -   **Interactive API Documentation:** Automatically generated and interactive API documentation powered by Swagger (drf-yasg).
+
+---
 
 ## 🛠️ Architecture & Tech Stack
 
@@ -33,6 +36,8 @@ This project was built with scalability and reliability in mind, using industry-
 
 The production environment follows a reverse proxy architecture:
 `User Request -> Nginx (Port 443/80) -> Gunicorn Socket -> Gunicorn Workers -> Django Application`
+
+---
 
 ## ⚙️ Local Setup & Installation
 
@@ -71,6 +76,8 @@ To run this project on your local machine, follow these steps:
     ```
     The server will be available at `http://127.0.0.1:8000/`.
 
+---
+
 ## 📖 API Usage
 
 The primary endpoint for spam detection is:
@@ -86,10 +93,13 @@ The request must be in `application/json` format.
 {
     "texto": "Congratulations! You've won a special prize. Click here now bit.ly/prize123"
 }
+````
 
-Success Response (200 OK)
+### Success Response (200 OK)
+
 The API returns a detailed analysis of the message.
 
+```json
 {
     "spam": true,
     "pontuacao": 25.83,
@@ -100,9 +110,13 @@ The API returns a detailed analysis of the message.
         "Padrão Regex: '(bit\\.ly|...)' (1x) -> +15 pts"
     ]
 }
+```
 
+-----
 
+## 👨‍💻 Authors
 
-👨‍💻 Authors:
--   Pedro Mikhael
--   João Vctor 
+  - Pedro Mikhael
+  - João Victor
+
+```
