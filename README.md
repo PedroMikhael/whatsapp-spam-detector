@@ -101,6 +101,8 @@ The API returns a detailed analysis of the message.
     ]
 }
 
-Authors:
-Pedro Mikhael
-João Vctor 
+
+
+👨‍💻 Authors:
+-   Pedro Mikhael
+-   João Vctor 
