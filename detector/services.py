@@ -1,68 +1,170 @@
-
 import re
-from .constants import PONTUACAO_SPAM, PADROES_REGEX_SPAM, LIMITE_SPAM_NORMALIZADO
+import requests
+import json
+import os
+from django.conf import settings
+from detector.constants import CATEGORIAS_SPAM, PADROES_REGEX_SPAM, LIMITE_SPAM_NORMALIZADO
 
-def calcular_percentual_maiusculas(texto: str) -> float:
-    """Função auxiliar para calcular a porcentagem de letras maiúsculas."""
-    if not texto:
-        return 0
-    maiusculas = sum(1 for char in texto if char.isupper())
-    letras = sum(1 for char in texto if char.isalpha())
+
+
+def analisar_categorias(texto_lower: str, detalhes: list) -> int:
+    pontos = 0
+    categorias_detectadas = set()
+    
+    for categoria, info in CATEGORIAS_SPAM.items():
+        for palavra in info["palavras"]:
+            if palavra in texto_lower:
+                ocorrencias = texto_lower.count(palavra)
+                pontos += info["peso"] * ocorrencias
+                detalhes.append(f"[{categoria.upper()}] Palavra detectada: '{palavra}' ({ocorrencias}x)")
+                categorias_detectadas.add(categoria)
+    
+    # Bônus por múltiplas categorias
+    if len(categorias_detectadas) > 1:
+        bonus = 5 * (len(categorias_detectadas) - 1)
+        pontos += bonus
+        detalhes.append(f"BÔNUS: Múltiplas categorias ({len(categorias_detectadas)}) -> +{bonus} pts")
+    
+    return pontos
+
+# -----------------------------
+# Regex suspeitos
+# -----------------------------
+def analisar_regex(texto: str, detalhes: list) -> int:
+    pontos = 0
+    for padrao, peso in PADROES_REGEX_SPAM.items():
+        matches = re.findall(padrao, texto, re.IGNORECASE)
+        if matches:
+            pontos += peso * len(matches)
+            detalhes.append(f"Padrão suspeito: '{padrao}' ({len(matches)}x)")
+    return pontos
+
+# -----------------------------
+# Formato e estilo
+# -----------------------------
+def analisar_formato(texto: str, detalhes: list) -> int:
+    pontos = 0
+    letras = sum(c.isalpha() for c in texto)
     if letras == 0:
         return 0
-    return (maiusculas / letras) * 100
 
+    maiusculas = sum(c.isupper() for c in texto)
+    percentual_caps = (maiusculas / letras) * 100
+    if percentual_caps > 50:
+        pontos += 8
+        detalhes.append(f"Excesso de maiúsculas ({percentual_caps:.1f}%)")
+
+    especiais = sum(1 for c in texto if not c.isalnum() and not c.isspace())
+    percentual_especiais = (especiais / len(texto)) * 100
+    if percentual_especiais > 20:
+        pontos += 10
+        detalhes.append(f"Excesso de caracteres especiais ({percentual_especiais:.1f}%)")
+
+    emojis = re.findall(r"[^\w\s,]", texto)
+    if len(emojis) > 5:
+        pontos += 5
+        detalhes.append(f"Excesso de emojis/símbolos ({len(emojis)})")
+
+    return pontos
+
+# -----------------------------
+# Bônus combinatório
+# -----------------------------
+def aplicar_bonus_combinacao(detalhes: list) -> int:
+    pontos = 0
+    achou_link = any("https" in d.lower() for d in detalhes)
+    achou_financeiro = any(word in d.lower() for d in detalhes for word in ["dinheiro", "pix", "crédito", "transferência", "depósito"])
+    achou_urgencia = any(word in d.lower() for d in detalhes for word in ["urgente", "imediato", "agora"])
+    
+    if achou_link and achou_financeiro:
+        pontos += 20
+        detalhes.append("Combinação: link + termo financeiro")
+    if achou_financeiro and achou_urgencia:
+        pontos += 15
+        detalhes.append("Combinação: termo financeiro + urgência")
+    return pontos
+
+# -----------------------------
+# Função principal “ML fake”
+# -----------------------------
 def verificar_texto_spam(texto: str) -> dict:
-    """
-    Verifica se um texto é spam usando uma lógica avançada de pontuação,
-    bônus por combinação, análise de maiúsculas e normalização.
-    """
-    texto_lower = texto.lower()
-    pontuacao_bruta = 0
     detalhes = []
+    texto_lower = texto.lower()
 
-    # 1. Calcula pontuação pelas palavras-chave
-    for palavra, pontos in PONTUACAO_SPAM.items():
-        if palavra in texto_lower:
-            ocorrencias = texto_lower.count(palavra)
-            pontuacao_bruta += pontos * ocorrencias
-            detalhes.append(f"Palavra: '{palavra}' ({ocorrencias}x) -> Pontos: +{pontos * ocorrencias}")
+    pontos = 0
+    pontos += analisar_categorias(texto_lower, detalhes)
+    pontos += analisar_regex(texto, detalhes)
+    pontos += analisar_formato(texto, detalhes)
+    pontos += aplicar_bonus_combinacao(detalhes)
 
-    # 2. Calcula pontuação pelos padrões regex
-    for padrao, pontos in PADROES_REGEX_SPAM.items():
-        if re.search(padrao, texto, re.IGNORECASE):
-            pontuacao_bruta += pontos
-            detalhes.append(f"Padrão: '{padrao}' -> Pontos: +{pontos}")
+    numero_palavras = len(texto.split())
+    pontuacao_normalizada = (pontos / numero_palavras) * 10 if numero_palavras > 0 else pontos
 
-    # 3. Análise de Excesso de Letras Maiúsculas
-    percentual_caps = calcular_percentual_maiusculas(texto)
-    if percentual_caps > 50: # Se mais de 50% das letras forem maiúsculas
-        pontuacao_bruta += 8
-        detalhes.append(f"ALERTA: Excesso de maiúsculas ({percentual_caps:.1f}%) -> Pontos: +8")
+    # Convertendo para pseudo-probabilidade de 0 a 100%
+    probabilidade_spam = min(round(pontuacao_normalizada * 2), 100)
 
-    # 4. Bônus por Combinação de Fatores de Risco
-    achou_link = any("bit.ly" in d for d in detalhes)
-    achou_termo_financeiro = any("dinheiro" in d or "investimento" in d or "ganhos" in d for d in detalhes)
+    # Nível de risco
+    if probabilidade_spam >= 75:
+        nivel_risco = "Alto risco"
+    elif probabilidade_spam >= 40:
+        nivel_risco = "Médio risco"
+    else:
+        nivel_risco = "Baixo risco"
 
-    if achou_link and achou_termo_financeiro:
-        pontuacao_bruta += 15
-        detalhes.append("BÔNUS: Combinação de link suspeito com termo financeiro -> Pontos: +15")
+    # Mensagem final estilosa
+    if probabilidade_spam >= 50:
+        mensagem_final = f"🚨 ALERTA: Esta mensagem parece ser SPAM! ({nivel_risco})"
+    else:
+        mensagem_final = f"✅ Esta mensagem parece ser segura. ({nivel_risco})"
 
-    # 5. Normalização da Pontuação (Cálculo Final)
-    numero_de_palavras = len(texto.split())
-    pontuacao_final_normalizada = 0
-    if numero_de_palavras > 0:
-        pontuacao_final_normalizada = (pontuacao_bruta / numero_de_palavras) * 10
-    
-    # 6. Verificação Final
-    is_spam = pontuacao_final_normalizada >= LIMITE_SPAM_NORMALIZADO
-    
-    mensagem_final = f"Este texto parece ser {'spam' if is_spam else 'seguro'}. (Pontuação Final: {pontuacao_final_normalizada:.2f})"
-
-    # 7. Retorna o dicionário completo
     return {
-        "spam": is_spam,
-        "pontuacao": round(pontuacao_final_normalizada, 2),
+        "spam": probabilidade_spam >= 50,
+        "probabilidade": probabilidade_spam,
+        "nivel_risco": nivel_risco,
         "mensagem": mensagem_final,
         "detalhes": detalhes
     }
+
+def enviar_mensagem_whatsapp(numero_destinatario: str, mensagem: str):
+    """
+    Envia uma mensagem de texto para um número de WhatsApp usando a API da Meta.
+    """
+    
+    print("\n--- TENTANDO ENVIAR MENSAGEM DE RESPOSTA ---")
+
+    
+    access_token = settings.WHATSAPP_ACCESS_TOKEN
+    phone_number_id = settings.WHATSAPP_PHONE_NUMBER_ID
+
+    url = f"https://graph.facebook.com/v19.0/{phone_number_id}/messages"
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+
+    data = {
+        "messaging_product": "whatsapp",
+        "to": numero_destinatario,
+        "type": "text",
+        "text": {"body": mensagem},
+    }
+
+   
+    print(f"URL de Destino: {url}")
+    print(f"Token de Acesso Utilizado: ...{access_token[-4:]}") # 
+    print(f"Payload (Dados Enviados): {json.dumps(data, indent=2)}")
+   
+
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        
+        print(f"Resposta da Meta - Status: {response.status_code}")
+        print(f"Resposta da Meta - Conteúdo: {response.text}")
+        response.raise_for_status()
+
+        return True, response.json()
+
+    except requests.exceptions.RequestException as e:
+        print(f"Erro CRÍTICO na requisição: {e}")
+        return False, str(e)
