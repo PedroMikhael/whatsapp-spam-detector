@@ -1,9 +1,10 @@
 from pathlib import Path
 import os
+from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-(bcp0_$=z9nylls(cp8p%!it+*(d2ap3p(9t40^%s@_gg+1t#f'
+SECRET_KEY = config('SECRET_KEY')
 DEBUG = False  
 ALLOWED_HOSTS = ['18.221.25.182', '127.0.0.1', 'localhost', '.ngrok-free.app', 'chatbot-spam.duckdns.org']
 
@@ -89,7 +90,7 @@ UTH_PASSWORD_VALIDATORS = [
 
 
 
-WHATSAPP_VERIFY_TOKEN = "tokenfacil123"
+WHATSAPP_VERIFY_TOKEN = config('WHATSAPP_VERIFY_TOKEN')
 
-WHATSAPP_ACCESS_TOKEN = 'EAFUA6anUjL0BPRP3ZAmRzuIXOPOvV4FLczGqWtM5RBZAZB8i6ZCjiu94CU3bEEGdYjJXoOQRZBJvPoZCs6ApE7vgUu32J5Q3tSqB7EMT3MCQjOJds8dgkSH6lFGuCtp06qKIcyvsZBIJZARgV5WRC8rQZCbgpz2dvPlu1KZBCqTKA5KJs1Fk9lStdZCG3wkHpe4TUYNHn4duNtzdU27e94ZCdG5gPYoSRZANcGhs0vgce3yjsI42yMyk7nb1UFsIcE2D07gZDZD'
-WHATSAPP_PHONE_NUMBER_ID = '765888489941122'
+WHATSAPP_ACCESS_TOKEN = config('WHATSAPP_ACCESS_TOKEN')
+WHATSAPP_PHONE_NUMBER_ID = config('WHATSAPP_PHONE_NUMBER_ID')
