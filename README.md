@@ -1,19 +1,26 @@
-
 # WhatsApp Spam Detector API 🤖
 
-A robust, rule-based API designed to detect spam in text messages, built with Python and Django, and deployed in a production-ready environment on AWS.
+An intelligent API powered by Google's Gemini, designed to detect spam and phishing in WhatsApp messages. It leverages real-time link scanning via the Google Safe Browsing API and acts as a hybrid conversational assistant.
 
 This project was developed as an academic requirement for the Computer Science course at UECE, under the supervision of Professor Rafael Lopes Gomes.
 
 ---
 
+## ✨ Live Demo & Documentation
+
+The API is live and fully documented with Swagger UI. You can interact with the endpoint in real-time here:
+
+**➡️ [https://chatbot-spam.duckdns.org/swagger/](https://chatbot-spam.duckdns.org/swagger/)**
+
+---
+
 ## 🚀 Core Features
 
--   **Rule-Based Scoring System:** Analyzes messages against a customizable dictionary of spam keywords and regex patterns.
--   **Content Analysis:** Detects spam indicators like excessive capitalization, special characters, and risky combinations (e.g., shortened links with financial terms).
--   **WhatsApp Webhook Integration:** Fully integrated with the Meta for Developers platform to receive and respond to WhatsApp messages in real-time.
--   **Production-Grade Deployment:** Deployed on Amazon Web Services (AWS) using a professional-grade server stack.
--   **Interactive API Documentation:** Automatically generated and interactive API documentation powered by Swagger (drf-yasg).
+-   **AI-Powered Analysis:** Utilizes Google's Gemini 1.5 Flash model to perform nuanced, context-aware analysis of messages, far surpassing traditional rule-based systems.
+-   **Real-time Link Scanning:** Integrates with the Google Safe Browsing API (v4) to check URLs for malware, phishing, and other threats in real-time.
+-   **Hybrid Conversational Agent:** Acts as a "Digital Guardian." It protects users by identifying threats and providing clear, didactic warnings. For safe messages, it functions as a helpful conversational assistant.
+-   **WhatsApp Webhook Integration:** Fully integrated with the Meta for Developers platform to receive and respond to WhatsApp messages instantly.
+-   **Production-Grade Deployment:** Deployed on Amazon Web Services (AWS) using a professional-grade, automated server stack.
 
 ---
 
@@ -21,17 +28,20 @@ This project was developed as an academic requirement for the Computer Science c
 
 This project was built with scalability and reliability in mind, using industry-standard tools for deployment.
 
-**Application:**
--   **Backend:** Python, Django, Django REST Framework
--   **API Documentation:** drf-yasg (Swagger)
+**Application & AI:**
+-   **Backend:** Python, Django
+-   **External APIs:**
+    -   Google Gemini API
+    -   Google Safe Browsing API
+    -   WhatsApp Business API (Meta)
 
 **Infrastructure (DevOps):**
 -   **Cloud Provider:** AWS EC2 (Ubuntu 22.04)
 -   **Web Server / Reverse Proxy:** Nginx
 -   **WSGI Server:** Gunicorn
 -   **Service Management:** systemd (for `gunicorn.socket` and `gunicorn.service`)
--   **Security:** Let's Encrypt SSL Certificate managed by Certbot for HTTPS.
--   **DNS:** DuckDNS for dynamic domain name service.
+-   **Security:** Let's Encrypt SSL Certificate managed by Certbot for HTTPS; Environment variables for secrets management.
+-   **DNS:** DuckDNS
 -   **Version Control:** Git & GitHub
 
 The production environment follows a reverse proxy architecture:
@@ -65,13 +75,9 @@ To run this project on your local machine, follow these steps:
     pip install -r requirements.txt
     ```
 
-4.  **Run database migrations:**
+4.  **Run database migrations and start the server:**
     ```bash
     python manage.py migrate
-    ```
-
-5.  **Run the development server:**
-    ```bash
     python manage.py runserver
     ```
     The server will be available at `http://127.0.0.1:8000/`.
@@ -80,43 +86,24 @@ To run this project on your local machine, follow these steps:
 
 ## 📖 API Usage
 
-The primary endpoint for spam detection is:
+The primary webhook for receiving messages is:
 
 -   **Endpoint:** `/api/spam/`
--   **Method:** `POST`
+-   **Method:** `POST` (for WhatsApp messages), `GET` (for webhook verification)
 
-### Request Body
+The interaction is done via the WhatsApp Business API. When a message is sent to the configured number, the API processes it and sends a reply.
 
-The request must be in `application/json` format.
+### Example AI Response (Sent back to the user via WhatsApp)
 
-```json
-{
-    "texto": "Congratulations! You've won a special prize. Click here now bit.ly/prize123"
-}
-````
+**For a malicious message:**
+> 🚨 ALERTA MÁXIMO! Esta mensagem é extremamente perigosa. O link fornecido foi identificado como malicioso pelo sistema de Navegação Segura do Google. **NÃO CLIQUE NESSE LINK**. A recomendação é apagar esta conversa e bloquear o número. Fique seguro! 👍
 
-### Success Response (200 OK)
+**For a safe message:**
+> Olá! Este é um projeto acadêmico de segurança digital. Como posso te ajudar? 😊
 
-The API returns a detailed analysis of the message.
-
-```json
-{
-    "spam": true,
-    "pontuacao": 25.83,
-    "mensagem": "Este texto parece ser spam. (Pontuação Final: 25.83)",
-    "detalhes": [
-        "Palavra: 'prêmio' (1x) -> Pontos: +8",
-        "Palavra: 'clique aqui' (1x) -> Pontos: +5",
-        "Padrão Regex: '(bit\\.ly|...)' (1x) -> +15 pts"
-    ]
-}
-```
-
------
+---
 
 ## 👨‍💻 Authors
 
-  - Pedro Mikhael
-  - João Victor
-
-```
+-   Pedro Mikhael
+-   João Victor
