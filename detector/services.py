@@ -1,129 +1,92 @@
-import re
+# dentro de detector/services.py
+
+# ... (imports no topo do arquivo) ...
+import os
 import requests
 import json
-import os
+import re
 from django.conf import settings
-from detector.constants import CATEGORIAS_SPAM, PADROES_REGEX_SPAM, LIMITE_SPAM_NORMALIZADO
+import google.generativeai as genai
 
+genai.configure(api_key=settings.GEMINI_API_KEY)
 
-
-def analisar_categorias(texto_lower: str, detalhes: list) -> int:
-    pontos = 0
-    categorias_detectadas = set()
+def analisar_com_gemini(texto: str) -> dict:
+    """
+    Analisa uma mensagem com a IA Gemini para atuar como um "Guardião Digital".
+    """
     
-    for categoria, info in CATEGORIAS_SPAM.items():
-        for palavra in info["palavras"]:
-            if palavra in texto_lower:
-                ocorrencias = texto_lower.count(palavra)
-                pontos += info["peso"] * ocorrencias
-                detalhes.append(f"[{categoria.upper()}] Palavra detectada: '{palavra}' ({ocorrencias}x)")
-                categorias_detectadas.add(categoria)
+    links_encontrados = re.findall(r'(https?://\S+)', texto)
+    primeiro_link = links_encontrados[0] if links_encontrados else "Nenhum link encontrado."
+
+    prompt = f"""
+    Você é um sistema de cibersegurança autônomo, inspirado na abordagem AutoML do AutoPhish, e atua como um assistente de IA amigável chamado "Guardião Digital".
+    Sua especialidade é detectar spam, phishing e golpes em mensagens de texto do WhatsApp em português do Brasil.
+
+    Sua missão é dupla:
+    1.  **PROTEGER (Prioridade Máxima):** Sua análise deve ser metódica e baseada em características (features) estruturais e de engenharia social.
+    2.  **CONVERSAR (Se Seguro):** Se a mensagem for 100% segura (uma saudação, pergunta legítima), sua missão é agir como um assistente prestativo e responder de forma natural.
+
+    ---
+    **VETORES DE ANÁLISE DE AMEAÇAS (CHECKLIST OBRIGATÓRIO):**
+
+    Analise a mensagem abaixo focando nos seguintes vetores de ataque:
+    1.  **Análise de URL (se houver):** Verifique a estrutura do link: "{primeiro_link}". Procure por encurtadores (bit.ly, tinyurl), TLDs suspeitos (.xyz, .club), subdomínios excessivos, ou tentativas de imitar domínios famosos (ex: `banco-ltaú.com`).
+    2.  **Engenharia Social:** Identifique táticas de **urgência** ("última chance!", "só hoje"), **autoridade** ("aviso importante do seu banco"), **escassez** ("vagas limitadas") ou **ganância** ("você ganhou", "dinheiro fácil").
+    3.  **Personificação de Marca:** A mensagem tenta se passar por uma empresa conhecida (bancos, lojas, governo)?
+    4.  **Linguagem e Formatação:** Procure por erros gramaticais grosseiros, formatação estranha (espaços entre letras), ou uso excessivo de emojis e pontos de exclamação.
+    ---
+
+    **FORMATO DA RESPOSTA (OBRIGATÓRIO):**
+    Sua resposta deve ser SEMPRE e APENAS um objeto JSON, sem nenhum texto ou formatação extra.
+    A estrutura do JSON deve ser a seguinte:
+    {{
+      "spam": boolean,
+      "analise": "Sua análise técnica e detalhada em bullet points, baseada nos vetores de ataque. Seja específico.",
+      "resposta_usuario": "O texto exato, em português, com tom amigável e protetor, para ser enviado de volta ao usuário."
+    }}
+
+    **EXEMPLO DE RESPOSTA (SPAM):**
+    ```json
+    {{
+      "spam": true,
+      "analise": "- Engenharia Social: Utiliza tática de ganância ('prêmio') e urgência ('agora mesmo').\n- Análise de URL: Contém um link encurtado (`bit.ly`), o que é um forte indicador de risco pois oculta o destino final.",
+      "resposta_usuario": " Cuidado! Esta mensagem tem características de um golpe. Ela usa um tom de urgência e um link suspeito para te pressionar a agir. O ideal é não clicar e apagar a mensagem. Fique seguro! "
+    }}
+    ```
     
-    # Bônus por múltiplas categorias
-    if len(categorias_detectadas) > 1:
-        bonus = 5 * (len(categorias_detectadas) - 1)
-        pontos += bonus
-        detalhes.append(f"BÔNUS: Múltiplas categorias ({len(categorias_detectadas)}) -> +{bonus} pts")
+    **EXEMPLO DE RESPOSTA (SEGURA):**
+    ```json
+    {{
+      "spam": false,
+      "analise": "- A mensagem é uma pergunta direta e não contém nenhum dos vetores de ataque analisados.",
+      "resposta_usuario": "Olá! Este é um projeto acadêmico para detecção de spam, mas fico feliz em ajudar se tiver alguma outra pergunta. "
+    }}
+    ```
     
-    return pontos
-
-# -----------------------------
-# Regex suspeitos
-# -----------------------------
-def analisar_regex(texto: str, detalhes: list) -> int:
-    pontos = 0
-    for padrao, peso in PADROES_REGEX_SPAM.items():
-        matches = re.findall(padrao, texto, re.IGNORECASE)
-        if matches:
-            pontos += peso * len(matches)
-            detalhes.append(f"Padrão suspeito: '{padrao}' ({len(matches)}x)")
-    return pontos
-
-# -----------------------------
-# Formato e estilo
-# -----------------------------
-def analisar_formato(texto: str, detalhes: list) -> int:
-    pontos = 0
-    letras = sum(c.isalpha() for c in texto)
-    if letras == 0:
-        return 0
-
-    maiusculas = sum(c.isupper() for c in texto)
-    percentual_caps = (maiusculas / letras) * 100
-    if percentual_caps > 50:
-        pontos += 8
-        detalhes.append(f"Excesso de maiúsculas ({percentual_caps:.1f}%)")
-
-    especiais = sum(1 for c in texto if not c.isalnum() and not c.isspace())
-    percentual_especiais = (especiais / len(texto)) * 100
-    if percentual_especiais > 20:
-        pontos += 10
-        detalhes.append(f"Excesso de caracteres especiais ({percentual_especiais:.1f}%)")
-
-    emojis = re.findall(r"[^\w\s,]", texto)
-    if len(emojis) > 5:
-        pontos += 5
-        detalhes.append(f"Excesso de emojis/símbolos ({len(emojis)})")
-
-    return pontos
-
-# -----------------------------
-# Bônus combinatório
-# -----------------------------
-def aplicar_bonus_combinacao(detalhes: list) -> int:
-    pontos = 0
-    achou_link = any("https" in d.lower() for d in detalhes)
-    achou_financeiro = any(word in d.lower() for d in detalhes for word in ["dinheiro", "pix", "crédito", "transferência", "depósito"])
-    achou_urgencia = any(word in d.lower() for d in detalhes for word in ["urgente", "imediato", "agora"])
+    ---
+    **MENSAGEM REAL PARA ANÁLISE:**
+    "{texto}"
+    """
     
-    if achou_link and achou_financeiro:
-        pontos += 20
-        detalhes.append("Combinação: link + termo financeiro")
-    if achou_financeiro and achou_urgencia:
-        pontos += 15
-        detalhes.append("Combinação: termo financeiro + urgência")
-    return pontos
+    try:
+        model = genai.GenerativeModel('gemini-pro')
+        response = model.generate_content(prompt)
+        cleaned_response = response.text.strip().replace("`", "").replace("json", "")
+        resultado_json = json.loads(cleaned_response)
+        
+        if "spam" not in resultado_json or "resposta_usuario" not in resultado_json:
+             raise ValueError("A resposta da IA não contém as chaves esperadas.")
 
-# -----------------------------
-# Função principal “ML fake”
-# -----------------------------
-def verificar_texto_spam(texto: str) -> dict:
-    detalhes = []
-    texto_lower = texto.lower()
+        print("Análise do Gemini (V3) recebida com sucesso:", resultado_json)
+        return resultado_json
 
-    pontos = 0
-    pontos += analisar_categorias(texto_lower, detalhes)
-    pontos += analisar_regex(texto, detalhes)
-    pontos += analisar_formato(texto, detalhes)
-    pontos += aplicar_bonus_combinacao(detalhes)
-
-    numero_palavras = len(texto.split())
-    pontuacao_normalizada = (pontos / numero_palavras) * 10 if numero_palavras > 0 else pontos
-
-    # Convertendo para pseudo-probabilidade de 0 a 100%
-    probabilidade_spam = min(round(pontuacao_normalizada * 2), 100)
-
-    # Nível de risco
-    if probabilidade_spam >= 75:
-        nivel_risco = "Alto risco"
-    elif probabilidade_spam >= 40:
-        nivel_risco = "Médio risco"
-    else:
-        nivel_risco = "Baixo risco"
-
-    # Mensagem final estilosa
-    if probabilidade_spam >= 50:
-        mensagem_final = f"🚨 ALERTA: Esta mensagem parece ser SPAM! ({nivel_risco})"
-    else:
-        mensagem_final = f"✅ Esta mensagem parece ser segura. ({nivel_risco})"
-
-    return {
-        "spam": probabilidade_spam >= 50,
-        "probabilidade": probabilidade_spam,
-        "nivel_risco": nivel_risco,
-        "mensagem": mensagem_final,
-        "detalhes": detalhes
-    }
+    except Exception as e:
+        print(f"Erro ao chamar a API do Gemini: {e}")
+        return {
+            "spam": False,
+            "analise": f"Erro interno ao processar a mensagem com a IA: {e}",
+            "resposta_usuario": "Desculpe, não consegui processar sua mensagem neste momento. "
+        }
 
 def enviar_mensagem_whatsapp(numero_destinatario: str, mensagem: str):
     """
