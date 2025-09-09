@@ -36,7 +36,7 @@ def webhook_whatsapp(request):
                 print(f"Análise da IA: {resultado_analise.get('analise')}")
                 
                 
-                mensagem_de_resposta = resultado_analise['resposta_usuario']
+                mensagem_de_resposta = resultado_analise['user_response']
                 
                 
                 enviar_mensagem_whatsapp(remetente, mensagem_de_resposta)
