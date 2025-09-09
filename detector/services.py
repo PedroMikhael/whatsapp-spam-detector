@@ -1,6 +1,4 @@
-# dentro de detector/services.py
 
-# ... (imports no topo do arquivo) ...
 import os
 import requests
 import json
@@ -8,65 +6,119 @@ import re
 from django.conf import settings
 import google.generativeai as genai
 
+# Configuração da API do Gemini
 genai.configure(api_key=settings.GEMINI_API_KEY)
+
+def verificar_link_com_safe_browsing(link: str) -> str:
+    """
+    Verifica uma URL com a API Google Safe Browsing v4.
+    Retorna uma string descrevendo o status do link.
+    """
+    url_api = "https://safebrowsing.googleapis.com/v4/threatMatches:find"
+    api_key = settings.SAFE_BROWSING_API_KEY
+    
+    payload = {
+        "client": {"clientId": "spamapiproject", "clientVersion": "1.0.0"},
+        "threatInfo": {
+            "threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"],
+            "platformTypes": ["ANY_PLATFORM"],
+            "threatEntryTypes": ["URL"],
+            "threatEntries": [{"url": link}]
+        }
+    }
+    params = {'key': api_key}
+
+    try:
+        response = requests.post(url_api, params=params, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        if 'matches' in data:
+            threat_type = data['matches'][0]['threatType']
+            print(f"SAFE BROWSING: Ameaça encontrada no link '{link}': {threat_type}")
+            return f"PERIGOSO (Ameaça detectada: {threat_type})"
+        else:
+            print(f"SAFE BROWSING: Nenhuma ameaça encontrada para o link '{link}'.")
+            return "SEGURO"
+    except requests.exceptions.RequestException as e:
+        print(f"Erro ao chamar a API Safe Browsing: {e}")
+        return "INDETERMINADO (Falha na verificação)"
 
 def analisar_com_gemini(texto: str) -> dict:
     """
-    Analisa uma mensagem com a IA Gemini para atuar como um "Guardião Digital".
+    Analisa uma mensagem com a IA Gemini usando um prompt avançado e estruturado.
     """
-    
     links_encontrados = re.findall(r'(https?://\S+)', texto)
-    primeiro_link = links_encontrados[0] if links_encontrados else "Nenhum link encontrado."
+    resultado_safe_browsing = "Nenhum link na mensagem."
+    
+    if links_encontrados:
+        primeiro_link = links_encontrados[0]
+        resultado_safe_browsing = verificar_link_com_safe_browsing(primeiro_link)
+    
 
     prompt = f"""
-    Você é um sistema de cibersegurança autônomo, inspirado na abordagem AutoML do AutoPhish, e atua como um assistente de IA amigável chamado "Guardião Digital".
-    Sua especialidade é detectar spam, phishing e golpes em mensagens de texto do WhatsApp em português do Brasil.
+    <ROLE>
+    Você é o "Guardião Digital", um sistema de cibersegurança autônomo e altamente qualificado. Sua especialidade é a detecção de spam, phishing e táticas de engenharia social em mensagens de texto do WhatsApp em português do Brasil. Sua comunicação deve ser clara, protetora e didática.
+    </ROLE>
 
-    Sua missão é dupla:
-    1.  **PROTEGER (Prioridade Máxima):** Sua análise deve ser metódica e baseada em características (features) estruturais e de engenharia social.
-    2.  **CONVERSAR (Se Seguro):** Se a mensagem for 100% segura (uma saudação, pergunta legítima), sua missão é agir como um assistente prestativo e responder de forma natural.
+    <MISSION>
+    Sua missão é dupla e sequencial:
+    1.  **PROTEGER:** Realize uma análise metódica da mensagem fornecida para determinar seu nível de risco.
+    2.  **INTERAGIR:** Se, e somente se, a mensagem for classificada como 100% segura, aja como um assistente virtual prestativo e converse com o usuário.
+    </MISSION>
 
-    ---
-    **VETORES DE ANÁLISE DE AMEAÇAS (CHECKLIST OBRIGATÓRIO):**
+    <CONTEXT>
+    <USER_MESSAGE>{texto}</USER_MESSAGE>
+    <TECHNICAL_LINK_ANALYSIS_RESULT>{resultado_safe_browsing}</TECHNICAL_LINK_ANALYSIS_RESULT>
+    </CONTEXT>
 
-    Analise a mensagem abaixo focando nos seguintes vetores de ataque:
-    1.  **Análise de URL (se houver):** Verifique a estrutura do link: "{primeiro_link}". Procure por encurtadores (bit.ly, tinyurl), TLDs suspeitos (.xyz, .club), subdomínios excessivos, ou tentativas de imitar domínios famosos (ex: `banco-ltaú.com`).
-    2.  **Engenharia Social:** Identifique táticas de **urgência** ("última chance!", "só hoje"), **autoridade** ("aviso importante do seu banco"), **escassez** ("vagas limitadas") ou **ganância** ("você ganhou", "dinheiro fácil").
-    3.  **Personificação de Marca:** A mensagem tenta se passar por uma empresa conhecida (bancos, lojas, governo)?
-    4.  **Linguagem e Formatação:** Procure por erros gramaticais grosseiros, formatação estranha (espaços entre letras), ou uso excessivo de emojis e pontos de exclamação.
-    ---
+    <INSTRUCTIONS>
+    Siga estes passos para completar sua missão:
 
-    **FORMATO DA RESPOSTA (OBRIGATÓRIO):**
-    Sua resposta deve ser SEMPRE e APENAS um objeto JSON, sem nenhum texto ou formatação extra.
-    A estrutura do JSON deve ser a seguinte:
+    1.  **ANÁLISE METÓDICA:** Conduza sua análise focando nos seguintes vetores de ataque:
+        -   **Análise de URL:** Avalie a `TECHNICAL_LINK_ANALYSIS_RESULT`. Se o resultado for "PERIGOSO", a mensagem deve ser classificada como "MALICIOUS". Se for "SEGURO", continue a análise. Se for "INDETERMINADO", considere o link um fator de risco moderado. Analise também o texto do link na `USER_MESSAGE` em busca de táticas de ofuscação (encurtadores, domínios com erros de digitação, etc.).
+        -   **Engenharia Social:** Identifique táticas de ganância (prêmios, dinheiro fácil), urgência (só hoje, agora), autoridade (se passando por banco, governo) ou escassez (vagas limitadas).
+        -   **Personificação de Marca:** A mensagem tenta se passar por uma empresa conhecida?
+        -   **Linguagem e Formatação:** Procure por erros gramaticais grosseiros, excesso de emojis, formatação estranha (letras espaçadas).
+
+    2.  **AVALIAÇÃO DE RISCO:** Com base na sua análise, classifique a mensagem em UM dos três níveis de risco:
+        -   `SAFE`: Nenhuma característica de spam/golpe encontrada. Parece uma conversa normal.
+        -   `SUSPICIOUS`: Possui uma ou duas características de baixo risco (ex: um link, uma promoção genérica).
+        -   `MALICIOUS`: Possui múltiplas características de risco, táticas claras de engenharia social, ou um link confirmado como perigoso.
+
+    3.  **FORMULAÇÃO DA RESPOSTA:** Crie uma resposta para o usuário que seja amigável, protetora e, se for o caso, didática, explicando o porquê do alerta.
+
+    **FORMATO DE SAÍDA (OBRIGATÓRIO):**
+    Sua resposta final deve ser APENAS um objeto JSON válido, sem nenhum texto ou formatação adicional. A estrutura é:
     {{
-      "spam": boolean,
-      "analise": "Sua análise técnica e detalhada em bullet points, baseada nos vetores de ataque. Seja específico.",
-      "resposta_usuario": "O texto exato, em português, com tom amigável e protetor, para ser enviado de volta ao usuário."
+      "risk_level": "Um dos três níveis: SAFE, SUSPICIOUS, ou MALICIOUS",
+      "analysis_details": [
+        "Um item da lista para cada ponto importante da sua análise técnica.",
+        "Seja específico e use os vetores de ataque como guia."
+      ],
+      "user_response": "O texto exato e elaborado para ser enviado de volta ao usuário."
     }}
-
-    **EXEMPLO DE RESPOSTA (SPAM):**
-    ```json
-    {{
-      "spam": true,
-      "analise": "- Engenharia Social: Utiliza tática de ganância ('prêmio') e urgência ('agora mesmo').\n- Análise de URL: Contém um link encurtado (`bit.ly`), o que é um forte indicador de risco pois oculta o destino final.",
-      "resposta_usuario": " Cuidado! Esta mensagem tem características de um golpe. Ela usa um tom de urgência e um link suspeito para te pressionar a agir. O ideal é não clicar e apagar a mensagem. Fique seguro! "
-    }}
-    ```
-    
-    **EXEMPLO DE RESPOSTA (SEGURA):**
-    ```json
-    {{
-      "spam": false,
-      "analise": "- A mensagem é uma pergunta direta e não contém nenhum dos vetores de ataque analisados.",
-      "resposta_usuario": "Olá! Este é um projeto acadêmico para detecção de spam, mas fico feliz em ajudar se tiver alguma outra pergunta. "
-    }}
-    ```
-    
-    ---
-    **MENSAGEM REAL PARA ANÁLISE:**
-    "{texto}"
+    </INSTRUCTIONS>
     """
+    
+    try:
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content(prompt)
+        cleaned_response = response.text.strip().replace("`", "").replace("json", "")
+        resultado_json = json.loads(cleaned_response)
+        
+        if "risk_level" not in resultado_json or "user_response" not in resultado_json:
+             raise ValueError("A resposta da IA não contém as chaves esperadas.")
+
+        print("Análise do Gemini (V4 - Pro) recebida com sucesso:", resultado_json)
+        return resultado_json
+
+    except Exception as e:
+        print(f"Erro ao chamar a API do Gemini: {e}")
+        return {
+            "risk_level": "SAFE",
+            "analysis_details": [f"Erro interno ao processar a mensagem com a IA: {e}"],
+            "user_response": "Desculpe, não consegui processar sua mensagem neste momento. "
+        }
     
     try:
         model = genai.GenerativeModel('gemini-pro')
