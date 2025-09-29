@@ -143,7 +143,7 @@ def analisar_com_gemini(texto: str) -> dict:
     
     try:
         # Usando um modelo mais recente para melhor qualidade
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(prompt)
         # Limpeza aprimorada para extrair o JSON
         match = re.search(r'\{.*\}', response.text, re.DOTALL)
