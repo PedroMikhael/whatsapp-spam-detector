@@ -1,4 +1,4 @@
-# detector/services.py - VERSÃO DE ELITE
+
 
 import os
 import requests
@@ -156,7 +156,7 @@ def analisar_com_gemini(texto: str) -> dict:
         if "risk_level" not in resultado_json or "user_response" not in resultado_json:
              raise ValueError("A resposta da IA não contém as chaves esperadas.")
 
-        print("Análise do Gemini (V5 - Elite) recebida com sucesso:", resultado_json)
+        print("Análise do Gemini recebida com sucesso:", resultado_json)
         return resultado_json
 
     except Exception as e:
@@ -180,3 +180,4 @@ def enviar_mensagem_whatsapp(numero_destinatario: str, mensagem: str):
     except requests.exceptions.RequestException as e:
         print(f"Erro CRÍTICO na requisição: {e}")
         return False, str(e)
+
