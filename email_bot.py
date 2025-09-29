@@ -2,6 +2,8 @@ import os
 import time
 import base64
 from email.mime.text import MIMEText
+import re
+import json
 
 # Imports do Google
 from google.auth.transport.requests import Request
