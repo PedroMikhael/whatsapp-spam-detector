@@ -1,7 +1,10 @@
+# email_bot.py - VERSÃO FINAL COM FEEDBACK POR LINK
+
 import os
 import time
 import base64
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import re
 import json
 
@@ -12,15 +15,22 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-# Configura o Django para podermos usar nossa função de análise
+# --- AJUSTE IMPORTANTE PARA ENCONTRAR O PROJETO DJANGO ---
+import sys
+# Adiciona o diretório pai (a raiz do projeto) ao caminho do Python
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# --- FIM DO AJUSTE ---
+
+# Configura o Django para podermos usar nossa função de análise e modelos
 import django
 # ATENÇÃO: Substitua 'spamapi' pelo nome da sua pasta de configuração, se for diferente
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'spamapi.settings') 
 django.setup()
 from detector.services import analisar_com_gemini
+from detector.models import Feedback # <-- Importa o modelo do banco de dados
 
 # --- CONFIGURAÇÃO ---
-SCOPES = ["https://www.googleapis.com/auth/gmail.modify"] # Permissão para ler, enviar e modificar (marcar como lido)
+SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 CHECK_INTERVAL_SECONDS = 60 # Verificar por novos e-mails a cada 60 segundos
 
 def authenticate():
@@ -36,17 +46,10 @@ def authenticate():
         else:
             print("Nenhum token válido encontrado. Iniciando autorização manual.")
             flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
-
-            # 1. Gera a URL de autorização
             auth_url, _ = flow.authorization_url(prompt='consent')
-
             print('Por favor, visite este URL para autorizar o acesso:')
             print(auth_url)
-
-            # 2. Pede o código de autorização para o usuário
             code = input('Digite o código de autorização do navegador aqui: ')
-
-            # 3. Troca o código pelo token de acesso
             flow.fetch_token(code=code)
             creds = flow.credentials
 
@@ -70,8 +73,8 @@ def check_and_process_emails(service):
             msg = service.users().messages().get(userId="me", id=message_info["id"], format='full').execute()
 
             headers = msg["payload"]["headers"]
-            subject = next(header["value"] for header in headers if header["name"].lower() == "subject")
-            sender = next(header["value"] for header in headers if header["name"].lower() == "from")
+            subject = next((header["value"] for header in headers if header["name"].lower() == "subject"), "Sem Assunto")
+            sender = next((header["value"] for header in headers if header["name"].lower() == "from"), "Remetente Desconhecido")
 
             print(f"\n--- NOVO E-MAIL RECEBIDO ---")
             print(f"De: {sender}")
@@ -84,42 +87,70 @@ def check_and_process_emails(service):
                 part = next(iter(p for p in parts if p["mimeType"] == "text/plain"), None)
                 email_body_encoded = part["body"]["data"] if part else ""
 
-            email_body = base64.urlsafe_b64decode(email_body_encoded).decode("utf-8")
+            email_body = base64.urlsafe_b64decode(email_body_encoded).decode("utf-8", errors='ignore')
 
             resultado_analise = analisar_com_gemini(email_body)
             mensagem_de_resposta = resultado_analise["user_response"]
 
-            print(f"Análise da IA: {resultado_analise.get('analysis_details', 'N/A')}")
+            # 1. Salva a análise no banco para obter um ID único
+            nova_analise = Feedback.objects.create(
+                mensagem_original=email_body,
+                remetente=sender,
+                risco_ia=resultado_analise.get('risk_level', 'INDETERMINADO'),
+                analise_ia=str(resultado_analise.get('analysis_details', ''))
+            )
+            
+            print(f"Análise da IA salva no banco com ID: {nova_analise.id}")
 
-            send_reply(service, sender, subject, mensagem_de_resposta)
+            # 2. Envia a resposta, passando o ID para criar os links de feedback
+            send_reply(service, sender, subject, mensagem_de_resposta, nova_analise.id)
 
+            # 3. Marca o e-mail como lido para não processar de novo
             service.users().messages().modify(userId="me", id=message_info["id"], body={'removeLabelIds': ['UNREAD']}).execute()
             print("--- RESPOSTA ENVIADA E E-MAIL MARCADO COMO LIDO ---")
 
-
     except HttpError as error:
-        print(f"Ocorreu um erro na API: {error}")
+        print(f"Ocorreu um erro na API do Gmail: {error}")
+    except Exception as e:
+        print(f"Ocorreu um erro inesperado no processamento: {e}")
 
-def send_reply(service, to, subject, message_text):
-    """Cria e envia um e-mail de resposta."""
-    message = MIMEText(message_text)
-    message["to"] = to
-    # Extrai o e-mail do remetente, ignorando o nome
+def send_reply(service, to, subject, message_text, feedback_id):
+    """Cria e envia um e-mail de resposta em formato HTML com links de feedback."""
+    
+    link_correto = f"https://chatbot-spam.duckdns.org/feedback/{feedback_id}/correto/"
+    link_incorreto = f"https://chatbot-spam.duckdns.org/feedback/{feedback_id}/incorreto/"
+
+    # Cria o corpo do e-mail em HTML
+    html_content = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <p>{message_text.replace(chr(10), '<br>')}</p>
+            <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
+            <p style="font-size: 14px; color: #555;"><i>Minha análise foi útil?</i></p>
+            <a href="{link_correto}" style="display: inline-block; padding: 10px 18px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px; margin-right: 10px; font-weight: bold;">👍 Sim, acertou</a>
+            <a href="{link_incorreto}" style="display: inline-block; padding: 10px 18px; background-color: #dc3545; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">👎 Não, errou</a>
+        </body>
+    </html>
+    """
+    message = MIMEMultipart("alternative")
+    message["subject"] = f"Re: {subject}"
+    
     match = re.search(r'<(.+?)>', to)
     if match:
         message["to"] = match.group(1)
-
-    message["subject"] = f"Re: {subject}"
-
+    else:
+        message["to"] = to
+        
+    message.attach(MIMEText(html_content, "html"))
     encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
     create_message = {"raw": encoded_message}
-
+    
     service.users().messages().send(userId="me", body=create_message).execute()
 
 if __name__ == "__main__":
     print("Iniciando o bot de e-mail...")
     gmail_service = authenticate()
-    print("Verificação inicial de e-mails...")
+    print("Autenticação concluída. Iniciando verificação de e-mails...")
     while True:
         check_and_process_emails(gmail_service)
         time.sleep(CHECK_INTERVAL_SECONDS)
