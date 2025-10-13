@@ -75,3 +75,19 @@ def webhook_whatsapp(request):
 
     # Se for qualquer outro método (DELETE, PUT, etc.)
     return HttpResponse("Método não permitido", status=405)
+
+
+def registrar_feedback(request, feedback_id, resultado):
+    try:
+        # Encontra a análise original no banco de dados pelo ID
+        analise = Feedback.objects.get(id=feedback_id)
+
+        # Atualiza o registro com base no que o usuário clicou
+        analise.feedback_usuario_correto = (resultado == 'correto')
+        analise.save()
+
+        # Mostra uma mensagem simples de agradecimento
+        return HttpResponse("<h1>Obrigado pelo seu feedback!</h1><p>Sua resposta foi registrada com sucesso. Você está ajudando o Guardião Digital a ficar mais inteligente.</p>")
+
+    except Feedback.DoesNotExist:
+        return HttpResponse("<h1>Erro: Análise não encontrada.</h1>", status=404)

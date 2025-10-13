@@ -7,7 +7,7 @@ from detector.views import webhook_whatsapp
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-
+from detector.views import webhook_whatsapp, registrar_feedback
 
 schema_view = get_schema_view(
    openapi.Info(
@@ -30,4 +30,6 @@ urlpatterns = [
 
     # URL da documentação do Swagger
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+
+    path('feedback/<int:feedback_id>/<str:resultado>/', registrar_feedback, name='registrar_feedback'),
 ]

@@ -9,6 +9,7 @@ DEBUG = False
 ALLOWED_HOSTS = ['18.221.25.182', '127.0.0.1', 'localhost', '.ngrok-free.app', 'chatbot-spam.duckdns.org']
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -99,3 +100,17 @@ WHATSAPP_PHONE_NUMBER_ID = config('WHATSAPP_PHONE_NUMBER_ID')
 GEMINI_API_KEY = config('GEMINI_API_KEY')
 
 SAFE_BROWSING_API_KEY = config('SAFE_BROWSING_API_KEY')
+
+
+
+JAZZMIN_SETTINGS = {
+    "site_title": "Guardião Digital Admin",
+    "site_header": "Guardião Digital",
+    "site_brand": "Painel de Análise",
+    "welcome_sign": "Bem-vindo ao painel do Guardião Digital",
+    "copyright": "LARCES - UECE",
+    "topmenu_links": [
+        {"name": "Home",  "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"name": "Ver Site", "url": "/", "new_window": True},
+    ],
+}
