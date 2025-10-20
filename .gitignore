@@ -5,6 +5,8 @@ __pycache__/
 *.pyd
 venv/
 .env
+credentials.json
+token.json
 
 # Django
 *.sqlite3
