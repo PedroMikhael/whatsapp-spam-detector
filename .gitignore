@@ -16,3 +16,9 @@ staticfiles/
 
 # VS Code
 .vscode/
+
+chroma_db/
+chroma_db.zip
+*.csv
+*.txt
+chroma_db/f2eb75f3-90f3-4f7e-a568-7842b3659d4b

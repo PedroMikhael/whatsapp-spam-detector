@@ -1,16 +1,18 @@
-# detector/views.py - VERSÃO FINAL E COMPLETA COM FEEDBACK
+# detector/views.py - VERSÃO FINAL (Entende WhatsApp, E-mail e o Script)
 
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse # Importa JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 from django.conf import settings
 from .models import Feedback
 from .services import analisar_com_gemini, enviar_mensagem_whatsapp
+from rest_framework.decorators import api_view # Importa o decorador de API
 
+@api_view(['GET', 'POST']) # Marca como uma view de API
 @csrf_exempt
 def webhook_whatsapp(request):
     
-    # --- LÓGICA PARA O DESAFIO DE VERIFICAÇÃO (GET) ---
+    # --- LÓGICA DO GET (Verificação do Webhook) ---
     if request.method == 'GET':
         if request.GET.get("hub.mode") == "subscribe" and request.GET.get("hub.verify_token") == settings.WHATSAPP_VERIFY_TOKEN:
             print("WEBHOOK VERIFICADO COM SUCESSO!")
@@ -19,62 +21,56 @@ def webhook_whatsapp(request):
             print("FALHA NA VERIFICAÇÃO: Tokens não bateram.")
             return HttpResponse("Token de verificação inválido", status=403)
 
-    # --- LÓGICA PARA RECEBER MENSAGENS E FEEDBACK (POST) ---
+    # --- LÓGICA DO POST (Recebe WhatsApp OU Script) ---
     elif request.method == 'POST':
         try:
-            data = json.loads(request.body.decode('utf-8'))
+            data = request.data # .data é mais robusto que json.loads
             
-            texto_mensagem = data.get('entry', [{}])[0].get('changes', [{}])[0].get('value', {}).get('messages', [{}])[0].get('text', {}).get('body')
-            remetente = data.get('entry', [{}])[0].get('changes', [{}])[0].get('value', {}).get('messages', [{}])[0].get('from')
+            texto_mensagem = None
+            remetente = None
+            origem_da_chamada = "desconhecida" # Para sabermos quem chamou
 
-            if not texto_mensagem or not remetente:
-                print("Webhook recebido, mas não é uma mensagem de texto do usuário. Ignorando.")
-                return HttpResponse("OK", status=200)
+            # --- Tenta extrair como MENSAGEM DO WHATSAPP ---
+            if 'entry' in data and data.get('entry', [{}])[0].get('changes', [{}])[0].get('value', {}).get('messages', [{}])[0].get('text'):
+                texto_mensagem = data['entry'][0]['changes'][0]['value']['messages'][0]['text']['body']
+                remetente = data['entry'][0]['changes'][0]['value']['messages'][0]['from']
+                origem_da_chamada = "whatsapp"
+            
+            # --- Tenta extrair como MENSAGEM DO SCRIPT DE AVALIAÇÃO ---
+            elif 'texto' in data:
+                texto_mensagem = data.get('texto')
+                origem_da_chamada = "script_evaluate"
 
-            texto_lower = texto_mensagem.lower().strip()
-
-            # --- LÓGICA PARA CAPTURAR FEEDBACK ("Sim" ou "Não") ---
-            if texto_lower == 'sim' or texto_lower == 'não' or texto_lower == 'nao':
-                # Procura pela última análise para este usuário que ainda não tem feedback
-                ultima_analise = Feedback.objects.filter(remetente=remetente, feedback_usuario_correto__isnull=True).order_by('-timestamp').first()
+            # Se conseguimos extrair um texto, vamos analisar
+            if texto_mensagem:
+                print(f"--- MENSAGEM RECEBIDA ({origem_da_chamada}): {texto_mensagem[:50]}... ---")
                 
-                if ultima_analise:
-                    ultima_analise.feedback_usuario_correto = (texto_lower == 'sim')
-                    ultima_analise.save()
-                    
-                    mensagem_agradecimento = "Obrigado pelo seu feedback! Você está me ajudando a aprender e a ser mais preciso. 👍"
-                    enviar_mensagem_whatsapp(remetente, mensagem_agradecimento)
-                    print(f"--- FEEDBACK de '{remetente}' foi salvo como '{texto_lower}'! ---")
-                    return HttpResponse("OK", status=200)
+                resultado_analise = analisar_com_gemini(texto_mensagem)
+                print(f"Análise da IA: {resultado_analise.get('analysis_details')}")
 
-            # --- LÓGICA PRINCIPAL DE ANÁLISE DE NOVAS MENSAGENS ---
-            print(f"--- MENSAGEM RECEBIDA de '{remetente}': {texto_mensagem} ---")
+                # Se a origem for o WhatsApp, execute a lógica do WhatsApp (silenciada)
+                if origem_da_chamada == "whatsapp":
+                    Feedback.objects.create(
+                        mensagem_original=texto_mensagem,
+                        remetente=remetente,
+                        risco_ia=resultado_analise.get('risk_level', 'INDETERMINADO'),
+                        analise_ia=str(resultado_analise.get('analysis_details', ''))
+                    )
+                    print("--- ANÁLISE CONCLUÍDA (Respostas WhatsApp desativadas) ---")
+                    # Retorna 200 OK para a Meta
+                    return HttpResponse("OK", status=200)
+                
+                # Se a origem for o SCRIPT DE AVALIAÇÃO, devolve o JSON completo
+                elif origem_da_chamada == "script_evaluate":
+                    print("--- RETORNANDO RESULTADO PARA SCRIPT DE AVALIAÇÃO ---")
+                    return JsonResponse(resultado_analise, status=200)
             
-            resultado_analise = analisar_com_gemini(texto_mensagem)
-            print(f"Análise da IA: {resultado_analise.get('analysis_details')}")
-            
-            # Salva a análise no banco de dados, ANTES de pedir o feedback
-            Feedback.objects.create(
-                mensagem_original=texto_mensagem,
-                remetente=remetente,
-                risco_ia=resultado_analise.get('risk_level', 'INDETERMINADO'),
-                analise_ia=str(resultado_analise.get('analysis_details', ''))
-            )
-            
-            mensagem_de_resposta = resultado_analise['user_response']
-            mensagem_com_feedback = mensagem_de_resposta + "\n\nMinha análise foi útil? Responda com 'Sim' ou 'Não'."
-            enviar_mensagem_whatsapp(remetente, mensagem_com_feedback)
-            
-            print("--- RESPOSTA E PEDIDO DE FEEDBACK ENVIADOS ---")
-            
-            return HttpResponse("OK", status=200)
+            # Se não for nenhum dos formatos esperados
+            return HttpResponse("Formato de POST não reconhecido", status=400)
 
         except Exception as e:
-            print(f"Erro ao processar o webhook POST: {e}")
-            return HttpResponse(status=400)
-
-    # Se for qualquer outro método (DELETE, PUT, etc.)
-    return HttpResponse("Método não permitido", status=405)
+            print(f"Erro CRÍTICO ao processar o webhook POST: {e}")
+            return HttpResponse(f"Erro interno: {e}", status=500)
 
 
 def registrar_feedback(request, feedback_id, resultado):
