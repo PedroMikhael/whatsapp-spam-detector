@@ -142,10 +142,9 @@ def analisar_com_gemini(texto: str) -> dict:
     """
     
     try:
-        # Usando um modelo mais recente para melhor qualidade
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        
+        model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(prompt)
-        # Limpeza aprimorada para extrair o JSON
         match = re.search(r'\{.*\}', response.text, re.DOTALL)
         if not match:
             raise ValueError("Nenhum JSON válido encontrado na resposta da IA.")
