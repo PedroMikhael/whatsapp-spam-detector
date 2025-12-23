@@ -1,4 +1,3 @@
-# email_bot.py - VERSÃO FINAL COM FEEDBACK POR LINK
 
 import os
 import time
@@ -7,31 +6,25 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import re
 import json
-
-# Imports do Google
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-
-# --- AJUSTE IMPORTANTE PARA ENCONTRAR O PROJETO DJANGO ---
 import sys
-# Adiciona o diretório pai (a raiz do projeto) ao caminho do Python
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# --- FIM DO AJUSTE ---
 
-# Configura o Django para podermos usar nossa função de análise e modelos
+
+
 import django
-# ATENÇÃO: Substitua 'spamapi' pelo nome da sua pasta de configuração, se for diferente
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'spamapi.settings') 
 django.setup()
 from detector.services import analisar_com_gemini
-from detector.models import Feedback # <-- Importa o modelo do banco de dados
+from detector.models import Feedback 
 
-# --- CONFIGURAÇÃO ---
+
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
-CHECK_INTERVAL_SECONDS = 60 # Verificar por novos e-mails a cada 60 segundos
+CHECK_INTERVAL_SECONDS = 60 
 
 def authenticate():
     """Autentica com a API do Gmail usando o fluxo manual para servidores."""
@@ -92,7 +85,6 @@ def check_and_process_emails(service):
             resultado_analise = analisar_com_gemini(email_body)
             mensagem_de_resposta = resultado_analise["user_response"]
 
-            # 1. Salva a análise no banco para obter um ID único
             nova_analise = Feedback.objects.create(
                 mensagem_original=email_body,
                 remetente=sender,
@@ -102,10 +94,8 @@ def check_and_process_emails(service):
             
             print(f"Análise da IA salva no banco com ID: {nova_analise.id}")
 
-            # 2. Envia a resposta, passando o ID para criar os links de feedback
             send_reply(service, sender, subject, mensagem_de_resposta, nova_analise.id)
 
-            # 3. Marca o e-mail como lido para não processar de novo
             service.users().messages().modify(userId="me", id=message_info["id"], body={'removeLabelIds': ['UNREAD']}).execute()
             print("--- RESPOSTA ENVIADA E E-MAIL MARCADO COMO LIDO ---")
 
@@ -120,7 +110,6 @@ def send_reply(service, to, subject, message_text, feedback_id):
     link_correto = f"https://chatbot-spam.duckdns.org/feedback/{feedback_id}/correto/"
     link_incorreto = f"https://chatbot-spam.duckdns.org/feedback/{feedback_id}/incorreto/"
 
-    # Cria o corpo do e-mail em HTML
     html_content = f"""
     <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6;">

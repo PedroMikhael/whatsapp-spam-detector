@@ -1,6 +1,7 @@
 # detector/models.py
 from django.db import models
 
+
 class Feedback(models.Model):
     mensagem_original = models.TextField()
     remetente = models.CharField(max_length=20)
@@ -11,6 +12,10 @@ class Feedback(models.Model):
 
     # O feedback do usuário
     feedback_usuario_correto = models.BooleanField(null=True, blank=True) # True = IA acertou, False = IA errou
+
+    # --- NOVO CAMPO PARA O RAG/ACTIVE LEARNING ---
+    treinamento_concluido = models.BooleanField(default=False) # True se o dado foi usado para treinar o RAG
+    # -----------------------------------------------
 
     timestamp = models.DateTimeField(auto_now_add=True)
 

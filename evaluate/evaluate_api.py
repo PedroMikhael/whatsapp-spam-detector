@@ -1,4 +1,3 @@
-# evaluate_api.py - VERSÃO COM SALVAMENTO CONTÍNUO E RESUME
 
 import requests
 import pandas as pd

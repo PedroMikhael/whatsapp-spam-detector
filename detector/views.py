@@ -7,6 +7,10 @@ from django.conf import settings
 from .models import Feedback
 from .services import analisar_com_gemini, enviar_mensagem_whatsapp
 from rest_framework.decorators import api_view # Importa o decorador de API
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse, HttpResponse
+from .models import Feedback # Importe o modelo Feedback
+from .services import adicionar_ao_chromadb
 
 @api_view(['GET', 'POST']) # Marca como uma view de API
 @csrf_exempt
@@ -113,3 +117,42 @@ def registrar_feedback(request, feedback_id, resultado):
         
     except Feedback.DoesNotExist:
         return HttpResponse("<h1>Erro: Análise não encontrada.</h1><p>Este link de feedback pode ter expirado ou ser inválido.</p>", status=404)
+    
+
+def processar_feedback_treinamento(request):
+    """
+    Endpoint (URL) que recebe o feedback do usuário e aciona o treinamento RAG.
+    URL de exemplo: /feedback/?id=123&rotulo=spam
+    """
+    if request.method == 'GET':
+        feedback_id = request.GET.get('id')
+        novo_rotulo = request.GET.get('rotulo') 
+
+        if not feedback_id or not novo_rotulo:
+            return JsonResponse({'status': 'erro', 'mensagem': 'Parâmetros ID e RÓTULO são obrigatórios.'}, status=400)
+        
+        try:
+            feedback_registro = get_object_or_404(Feedback, id=feedback_id)
+
+            if feedback_registro.treinamento_concluido:
+                return HttpResponse("Este feedback já foi processado anteriormente. Obrigado!")
+
+            
+            sucesso_treinamento = adicionar_ao_chromadb(
+                texto=feedback_registro.texto_mensagem,
+                rotulo=novo_rotulo
+            )
+
+            if sucesso_treinamento:
+                feedback_registro.rotulo_correto = novo_rotulo
+                feedback_registro.treinamento_concluido = True
+                feedback_registro.save()
+                
+                return HttpResponse("✅ Feedback processado! O Guardião Digital aprendeu e está mais inteligente. Obrigado por sua contribuição!")
+            else:
+                return HttpResponse("❌ Erro: Não foi possível atualizar o modelo de IA. Tente novamente mais tarde.")
+
+        except Exception as e:
+            return JsonResponse({'status': 'erro', 'mensagem': f'Erro interno: {str(e)}'}, status=500)
+    
+    return JsonResponse({'status': 'erro', 'mensagem': 'Método não permitido.'}, status=405)
