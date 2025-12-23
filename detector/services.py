@@ -1,30 +1,57 @@
-
-
 import os
 import requests
 import json
 import re
 from django.conf import settings
 import google.generativeai as genai
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
+from langchain_core.documents import Document
 
-# Configuração da API do Gemini (lê a chave do ambiente)
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
+try:
+    embedding_function = HuggingFaceEmbeddings(model_name="BAAI/bge-small-en-v1.5")
+    
+   
+    vector_store = Chroma(
+        persist_directory="chroma_db",
+        embedding_function=embedding_function
+    )
+    RAG_ATIVO = True
+    print("✅ RAG: Banco de dados vetorial carregado com sucesso.")
+except Exception as e:
+    RAG_ATIVO = False
+    print(f"⚠️ RAG: Não foi possível carregar o banco vetorial. Erro: {e}")
+
+
+def buscar_exemplos_similares(texto_usuario):
+    """Busca exemplos parecidos no banco de dados vetorial."""
+    if not RAG_ATIVO:
+        return ""
+    
+    try:
+        
+        resultados = vector_store.similarity_search(texto_usuario, k=3)
+        
+        contexto_rag = "\n--- HISTORICAL SIMILAR EXAMPLES (from Vector Database) ---\n"
+        if not resultados:
+             contexto_rag += "No similar historical data found.\n"
+        else:
+            for i, doc in enumerate(resultados):
+                rotulo = doc.metadata.get('label', 'Unknown')
+                conteudo = doc.page_content.replace("\n", " ")[:300] 
+                contexto_rag += f"Example {i+1} (Actual Label: {rotulo}): \"{conteudo}\"\n"
+        
+        return contexto_rag
+    except Exception as e:
+        print(f"Erro na busca RAG: {e}")
+        return ""
+
 def verificar_link_com_safe_browsing(link: str) -> str:
-    """
-    Verifica uma URL com a API Google Safe Browsing v4.
-    """
     url_api = "https://safebrowsing.googleapis.com/v4/threatMatches:find"
     api_key = settings.SAFE_BROWSING_API_KEY
-    payload = {
-        "client": {"clientId": "spamapiproject", "clientVersion": "1.0.0"},
-        "threatInfo": {
-            "threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"],
-            "platformTypes": ["ANY_PLATFORM"],
-            "threatEntryTypes": ["URL"],
-            "threatEntries": [{"url": link}]
-        }
-    }
+    payload = {"client": {"clientId": "spamapiproject", "clientVersion": "1.0.0"},"threatInfo": {"threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"],"platformTypes": ["ANY_PLATFORM"],"threatEntryTypes": ["URL"],"threatEntries": [{"url": link}]}}
     params = {'key': api_key}
     try:
         response = requests.post(url_api, params=params, json=payload)
@@ -32,109 +59,60 @@ def verificar_link_com_safe_browsing(link: str) -> str:
         data = response.json()
         if 'matches' in data:
             threat_type = data['matches'][0]['threatType']
-            print(f"SAFE BROWSING: Ameaça encontrada no link '{link}': {threat_type}")
-            return f"PERIGOSO (Ameaça detectada: {threat_type})"
+            return f"PERIGOSO (Threat detected: {threat_type})"
         else:
-            print(f"SAFE BROWSING: Nenhuma ameaça encontrada para o link '{link}'.")
             return "SEGURO"
     except requests.exceptions.RequestException as e:
-        print(f"Erro ao chamar a API Safe Browsing: {e}")
-        return "INDETERMINADO (Falha na verificação)"
+        return "INDETERMINADO (Verification failed)"
+
 
 def analisar_com_gemini(texto: str) -> dict:
-    """
-    Analisa uma mensagem com a IA Gemini usando um prompt de elite.
-    """
     links_encontrados = re.findall(r'(https?://\S+)', texto)
     resultado_safe_browsing = "Nenhum link na mensagem."
     if links_encontrados:
         primeiro_link = links_encontrados[0]
         resultado_safe_browsing = verificar_link_com_safe_browsing(primeiro_link)
     
-    
+    contexto_historico = buscar_exemplos_similares(texto)
+
     prompt = f"""
     <ROLE>
-    Você é o "Guardião Digital", um sistema de cibersegurança autônomo e de elite. Você foi desenvolvido como um projeto de pesquisa no LARCES (Laboratório de Redes de Computadores e Segurança) da Universidade Estadual do Ceará (UECE). Sua especialidade é a análise forense de mensagens de texto do WhatsApp em português do Brasil. Sua comunicação é amigável, protetora e didática.
+    You are the "Digital Guardian," a highly specialized and elite cybersecurity AI agent. You were developed as a research project by LARCES (Networking and Security Laboratory) at the State University of Ceará (UECE). Your expertise is the forensic analysis of WhatsApp and email text messages in Brazilian Portuguese. Your communication is friendly, protective, and didactic.
     </ROLE>
 
     <MISSION>
-    Sua missão é dupla e sequencial:
-    1.  **PROTEGER:** Realize uma análise metódica e profunda da mensagem para determinar seu nível de risco.
-    2.  **INTERAGIR:** Se o risco for nulo (`SAFE`), aja como um assistente virtual e responda à pergunta do usuário de forma útil e natural.
+    Your mission is twofold and sequential:
+    1.  **PROTECT (Priority Maximum):** Perform a methodical and deep analysis of the incoming message to determine its risk level.
+    2.  **INTERACT:** If the risk is null (SAFE), act as a helpful virtual assistant and engage the user in a natural conversation.
     </MISSION>
 
     <CONTEXT>
     <USER_MESSAGE>{texto}</USER_MESSAGE>
     <TECHNICAL_LINK_ANALYSIS_RESULT>{resultado_safe_browsing}</TECHNICAL_LINK_ANALYSIS_RESULT>
+    {contexto_historico} 
     </CONTEXT>
 
     <INSTRUCTIONS>
-    Siga estes passos rigorosamente:
+    Follow these steps rigorously:
 
-    1.  **ANÁLISE METÓDICA:** Conduza sua análise focando nos seguintes vetores de ataque, usando o CONTEXTO fornecido:
-        -   **Análise de URL:** Avalie o `TECHNICAL_LINK_ANALYSIS_RESULT`. Um resultado "PERIGOSO" classifica a mensagem imediatamente como "MALICIOUS". Avalie também o texto do link na `USER_MESSAGE` em busca de táticas de ofuscação (encurtadores, TLDs suspeitos, etc.).
-        -   **Engenharia Social:** Identifique táticas de ganância, urgência, autoridade ou escassez.
-        -   **Personificação de Marca:** A mensagem tenta se passar por uma empresa conhecida? A URL corresponde?
-        -   **Linguagem e Formatação:** Procure por erros gramaticais grosseiros, excesso de emojis/pontuação, e formatação suspeita.
+    1.  **METHODICAL ANALYSIS:** Conduct your analysis focusing on the following vectors of attack:
+        -   **URL Analysis:** Evaluate the `TECHNICAL_LINK_ANALYSIS_RESULT`. A result of "PERIGOSO" immediately classifies the message as "MALICIOUS". **The SAFE result from this tool is only a recommendation and CAN BE OVERRIDDEN by contextual analysis.**
+        -   **Domain Impersonation (CRITICAL FALSO NEGATIVE CHECK):** If a link is present AND the message impersonates an entity (e.g., UECE, Banco do Brasil, Cearaprev), check if the link's domain matches the official entity's domain. **If the link is for an 'official action' (recadastramento, payment, etc.) but uses a non-official, unrelated domain (e.g., 'globalindiaschool.org' instead of 'uece.br'), the risk level MUST be increased to MALICIOUS, regardless of the 'SEGURO' technical result.** This is the primary defense against new, uncategorized phishing sites.
+        -   **Social Engineering:** Identify tactics of **greed** (prizes, easy money), **urgency** (threats, deadlines), **authority** (impersonating a bank or government), or **scarcity** (limited spots).
+        -   **Historical Context (RAG):** Use the examples provided in the "HISTORICAL SIMILAR EXAMPLES" section. If similar historical messages were labeled SPAM/PHISHING, significantly increase the risk level.
 
-    2.  **AVALIAÇÃO DE RISCO:** Classifique o risco em UM dos três níveis: `SAFE`, `SUSPICIOUS`, ou `MALICIOUS`.
+    2.  **RISK ASSESSMENT:** Classify the risk into ONE of three levels: `SAFE`, `SUSPICIOUS`, or `MALICIOUS`.
 
-    3.  **FORMULAÇÃO DA RESPOSTA:** Crie uma resposta didática e protetora para o usuário, explicando o porquê da sua decisão.
+    3.  **RESPONSE FORMULATION:** Create a didactic and protective response in **Portuguese** for the user, explaining the reason for your decision. If a link was analyzed and the result was 'SEGURO' but the message was still classified as SUSPICIOUS or MALICIOUS due to domain mismatch/social engineering, ensure this reasoning is clear.
 
-    **FORMATO DE SAÍDA (OBRIGATÓRIO E ESTRITO):**
-    Sua resposta deve ser APENAS um objeto JSON válido, sem nenhum texto ou formatação adicional. A estrutura é:
+    **FORMATO DE SAÍDA (Obrigatório e Estrito):**
+    Your final response MUST BE a single, valid JSON object and nothing else. The structure is:
     {{
-      "risk_level": "SAFE, SUSPICIOUS, ou MALICIOUS",
-      "analysis_details": ["Um array de strings, onde cada string é um ponto específico e técnico da sua análise."],
-      "user_response": "O texto exato e elaborado para ser enviado de volta ao usuário."
+      "risk_level": "SAFE, SUSPICIOUS, or MALICIOUS",
+      "analysis_details": ["A list of strings, where each string is a specific, technical point of your analysis."],
+      "user_response": "The exact and elaborated Portuguese text to be sent back to the user."
     }}
     </INSTRUCTIONS>
-
-    <TRAINING_EXAMPLES>
-    **Exemplo 1 (SPAM):**
-    -   MENSAGEM: "MENSAGEM GRÁTIS Ative seus 500 SMS GRÁTIS respondendo a esta mensagem com a palavra GRÁTIS Pra ver os termos & condições, visite www.07781482378.com"
-    -   RESPOSTA JSON:
-        ```json
-        {{
-          "risk_level": "MALICIOUS",
-          "analysis_details": ["Utiliza tática de ganância com a oferta de '500 SMS GRÁTIS'.", "Induz o usuário a uma ação impulsiva ('responda com a palavra GRÁTIS').", "A URL fornecida não é de uma empresa conhecida e parece suspeita."],
-          "user_response": "🚨 Alerta de Phishing! Esta mensagem usa táticas de urgência e uma oferta 'boa demais para ser verdade' para fazer você responder. O link fornecido não é confiável. Recomendo fortemente apagar a mensagem e não responder. Fique seguro!"
-        }}
-        ```
-
-    **Exemplo 2 (SPAM):**
-    -   MENSAGEM: "Liga pra 09095350301 e manda nossas garotas pro êxtase erótico. Só 60p/min. Pra parar os SMS liga pra 08712460324"
-    -   RESPOSTA JSON:
-        ```json
-        {{
-          "risk_level": "MALICIOUS",
-          "analysis_details": ["Conteúdo de natureza adulta/imprópria, comum em spam.", "Usa um número de telefone de alto custo (0909) como principal chamada para ação.", "Promete gratificação instantânea."],
-          "user_response": "🚨 Cuidado! Esta mensagem é um spam com conteúdo adulto e direciona para um número de telefone de alto custo. O ideal é apagar a conversa e bloquear o contato imediatamente."
-        }}
-        ```
-
-    **Exemplo 3 (SEGURO):**
-    -   MENSAGEM: "Se você tem acredita em mim. Vem pra minha casa."
-    -   RESPOSTA JSON:
-        ```json
-        {{
-          "risk_level": "SAFE",
-          "analysis_details": ["A mensagem é uma frase coloquial e pessoal.", "Não contém links, chamadas para ação suspeitas ou táticas de engenharia social."],
-          "user_response": "Análise concluída: esta mensagem parece ser uma conversa pessoal e segura. 👍"
-        }}
-        ```
-
-    **Exemplo 4 (SEGURO):**
-    -   MENSAGEM: "Ia realmente apreciar se você me ligasse. Só preciso de alguém pra conversar."
-    -   RESPOSTA JSON:
-        ```json
-        {{
-          "risk_level": "SAFE",
-          "analysis_details": ["A mensagem expressa um pedido pessoal e emocional, sem características de spam.", "O tom é conversacional e não tenta induzir a nenhuma ação perigosa."],
-          "user_response": "Esta mensagem parece ser segura. Sou um bot de análise de spam, mas espero que esteja tudo bem com você! 😊"
-        }}
-        ```
-    </TRAINING_EXAMPLES>
     
     ---
     **MENSAGEM REAL PARA ANÁLISE:**
@@ -142,20 +120,18 @@ def analisar_com_gemini(texto: str) -> dict:
     """
     
     try:
-        
         model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(prompt)
-        match = re.search(r'\{.*\}', response.text, re.DOTALL)
+        cleaned_response = response.text.strip().replace("`", "").replace("json", "")
+        match = re.search(r'\{.*\}', cleaned_response, re.DOTALL)
         if not match:
             raise ValueError("Nenhum JSON válido encontrado na resposta da IA.")
-        
-        cleaned_response = match.group(0)
-        resultado_json = json.loads(cleaned_response)
+        resultado_json = json.loads(match.group(0))
         
         if "risk_level" not in resultado_json or "user_response" not in resultado_json:
              raise ValueError("A resposta da IA não contém as chaves esperadas.")
 
-        print("Análise do Gemini recebida com sucesso:", resultado_json)
+        print("Análise do Gemini (V7 - Inglês Aprimorado) recebida com sucesso:", resultado_json)
         return resultado_json
 
     except Exception as e:
@@ -172,11 +148,39 @@ def enviar_mensagem_whatsapp(numero_destinatario: str, mensagem: str):
     data = {"messaging_product": "whatsapp", "to": numero_destinatario, "type": "text", "text": {"body": mensagem}}
     try:
         response = requests.post(url, headers=headers, json=data)
-        print(f"Resposta da Meta - Status: {response.status_code}")
-        print(f"Resposta da Meta - Conteúdo: {response.text}")
         response.raise_for_status()
         return True, response.json()
     except requests.exceptions.RequestException as e:
-        print(f"Erro CRÍTICO na requisição: {e}")
         return False, str(e)
+    
 
+def adicionar_ao_chromadb(texto: str, rotulo: str) -> bool:
+    """
+    Adiciona um novo documento (texto e rótulo) ao banco de dados ChromaDB.
+    Isso é o 'treinamento' do Active Learning.
+    """
+    global vector_store, RAG_ATIVO
+    
+    if not RAG_ATIVO:
+        print("⚠️ RAG: Treinamento falhou. O banco de dados vetorial não foi carregado.")
+        return False
+        
+    try:
+       
+        novo_documento = Document(
+            page_content=texto,
+            metadata={"label": rotulo}
+        )
+        
+        
+        vector_store.add_documents([novo_documento])
+        
+        
+        vector_store.persist()
+        
+        print(f"✅ RAG: Mensagem adicionada com sucesso ao ChromaDB. Novo rótulo: {rotulo}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ RAG: Erro ao adicionar documento ao ChromaDB: {e}")
+        return False
