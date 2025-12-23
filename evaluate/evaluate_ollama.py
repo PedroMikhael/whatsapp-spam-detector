@@ -39,7 +39,7 @@ PROMPT_SISTEMA_BASE = """
 DATASETS_PARA_TESTAR = [
     {
         "nome": "SMS Dataset",
-        "arquivo_entrada": "database/sms_dataset.csv", 
+        "arquivo_entrada": "sms_dataset.csv", 
         "arquivo_saida": "sms_ollama_output.csv", 
         "coluna_texto": "Message",
         "coluna_rotulo": "Label",
@@ -49,7 +49,7 @@ DATASETS_PARA_TESTAR = [
     },
     {
         "nome": "Email Dataset",
-        "arquivo_entrada": "database/email_dataset.csv", 
+        "arquivo_entrada": "email_dataset.csv", 
         "arquivo_saida": "email_ollama_output.csv", 
         "coluna_texto": "Email Text",
         "coluna_rotulo": "Email Type",
