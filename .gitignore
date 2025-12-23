@@ -5,6 +5,9 @@ __pycache__/
 *.pyd
 venv/
 .env
+env/
+env
+
 credentials.json
 token.json
 
@@ -16,7 +19,7 @@ staticfiles/
 
 # VS Code
 .vscode/
-
+ollama/
 chroma_db/
 chroma_db.zip
 *.csv
