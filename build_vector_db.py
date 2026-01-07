@@ -8,8 +8,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
 DATASETS = [
-    "whatsapp-spam-detector-develop/email_dataset.csv",
-    "whatsapp-spam-detector-develop/sms_dataset.csv"
+    "database/email_dataset.csv",
+    "database/sms_dataset.csv"
 ]
 
 

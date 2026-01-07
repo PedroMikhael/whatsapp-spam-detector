@@ -1,0 +1,14 @@
+Relatório Ollama - 2025-12-28 17:37:22.884330
+
+--- SMS Dataset ---
+Acurácia: 98.7%
+F1-Score: 99.2%
+Tempo Médio: 3.41s
+
+--- Email Dataset ---
+Acurácia: 97.5%
+F1-Score: 98.2%
+Tempo Médio: 7.96s
+
+
+

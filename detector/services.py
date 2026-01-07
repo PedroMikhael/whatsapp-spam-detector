@@ -3,12 +3,12 @@ import requests
 import json
 import re
 from django.conf import settings
-from google import genai
+import google.generativeai as genai
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
+genai.configure(api_key=settings.GEMINI_API_KEY)
 
 try:
     embedding_function = HuggingFaceEmbeddings(model_name="BAAI/bge-small-en-v1.5")
@@ -120,31 +120,22 @@ def analisar_com_gemini(texto: str) -> dict:
     """
     
     try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
-
-        cleaned_response = (
-            response.text.strip()
-            .replace("```", "")
-            .replace("json", "")
-        )
-
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = model.generate_content(prompt)
+        cleaned_response = response.text.strip().replace("`", "").replace("json", "")
         match = re.search(r'\{.*\}', cleaned_response, re.DOTALL)
         if not match:
             raise ValueError("Nenhum JSON válido encontrado na resposta da IA.")
-
         resultado_json = json.loads(match.group(0))
-
+        
         if "risk_level" not in resultado_json or "user_response" not in resultado_json:
-            raise ValueError("A resposta da IA não contém as chaves esperadas.")
+             raise ValueError("A resposta da IA não contém as chaves esperadas.")
 
-        print("✅ Análise do Gemini recebida com sucesso:", resultado_json)
+        print("Análise do Gemini recebida com sucesso:", resultado_json)
         return resultado_json
 
     except Exception as e:
-        print(f"❌ Erro ao chamar ou processar a resposta do Gemini: {e}")
+        print(f"Erro ao chamar ou processar a resposta da API do Gemini: {e}")
         return {
             "risk_level": "INDETERMINADO",
             "analysis_details": [f"Erro interno ao processar a mensagem com a IA: {e}"],
