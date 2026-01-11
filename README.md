@@ -26,7 +26,7 @@ The core web API is live and documented with Swagger UI:
 
 ---
 
-## 🛠️ Architecture & Tech Stack
+## Architecture & Tech Stack
 
 **Application & AI:**
 -   **Backend:** Python, Django
