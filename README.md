@@ -13,9 +13,6 @@ This project was developed as an academic requirement for the Computer Science c
 The core web API is live and documented with Swagger UI:
 
 ** [https://chatbot-spam.duckdns.org/swagger/](https://chatbot-spam.duckdns.org/swagger/)**
-
-*(Note: The Swagger documentation primarily serves the WhatsApp webhook endpoint. The email functionality runs as a background service.)*
-
 ---
 
 ## Core Features
@@ -118,7 +115,7 @@ The core web API is live and documented with Swagger UI:
 >
 > ---
 > *Minha análise foi útil?*
-> **[Sim, acertou]** **[Não, errou]** *(Links only in Email version)*
+> **[Sim, acertou]** **[Não, errou]** 
 
 ---
 
