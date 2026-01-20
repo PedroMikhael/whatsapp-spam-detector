@@ -131,7 +131,7 @@ def analisar_com_gemini(texto: str) -> dict:
         if "risk_level" not in resultado_json or "user_response" not in resultado_json:
              raise ValueError("A resposta da IA não contém as chaves esperadas.")
 
-        print("Análise do Gemini (V7 - Inglês Aprimorado) recebida com sucesso:", resultado_json)
+        print("Análise do Gemini recebida com sucesso:", resultado_json)
         return resultado_json
 
     except Exception as e:
