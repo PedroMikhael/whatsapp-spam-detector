@@ -1,0 +1,15 @@
+Relatório Gemini - 2026-01-08 12:53:04.661284
+
+--- SMS Dataset ---
+Acurácia: 89.90%
+Precisão: 70.59%
+Recall: 70.59%
+F1-Score: 70.59%
+Tempo Médio: 2.30s
+
+--- Email Dataset ---
+Acurácia: 89.90%
+Precisão: 100.00%
+Recall: 72.97%
+F1-Score: 84.38%
+Tempo Médio: 4.38s
