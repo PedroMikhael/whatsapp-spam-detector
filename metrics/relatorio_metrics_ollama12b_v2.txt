@@ -1,0 +1,17 @@
+Relatório Ollama - 2026-01-08 21:43:11.741408
+
+--- SMS Dataset ---
+Acurácia: 84.93%
+Precisão: 40.31%
+Recall: 96.30%
+F1-Score: 56.83%
+IC 95% (Acurácia): [76.01%, 81.85%]
+Tempo Médio: 4.25s
+
+--- Email Dataset ---
+Acurácia: 80.33%
+Precisão: 59.19%
+Recall: 92.03%
+F1-Score: 72.04%
+IC 95% (Acurácia): [68.10%, 74.57%]
+Tempo Médio: 15.64s
