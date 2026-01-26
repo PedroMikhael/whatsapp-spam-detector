@@ -18,7 +18,7 @@ Este documento reúne exemplos reais de mensagens processadas pelo sistema, com 
 > Para qualquer dúvida, não hesite em nos contatar."
 
 **Análise da IA:**
-Olá! Sou o Digital Guardian, seu protetor virtual do LARCES/UECE. Analisei cuidadosamente a mensagem que você me enviou, e preciso te dar um alerta importante!
+"Olá! Sou o Digital Guardian, seu protetor virtual do LARCES/UECE. Analisei cuidadosamente a mensagem que você me enviou, e preciso te dar um alerta importante!
 
 Minha análise indicou que esta mensagem é **MALICIOSA** e representa um risco significativo. Identifiquei alguns sinais de alerta críticos:
 
@@ -28,7 +28,7 @@ Minha análise indicou que esta mensagem é **MALICIOSA** e representa um risco 
 
 Por favor, **NÃO clique neste link** e **NÃO forneça nenhuma informação pessoal** caso tenha acessado. Recomendo que você apague esta mensagem imediatamente. Sempre desconfie de e-mails com links que não correspondem ao domínio oficial da instituição que supostamente o enviou, especialmente quando pedem ações urgentes ou oferecem benefícios inesperados. Em caso de dúvida, procure os canais oficiais da UECE diretamente.
 
-Estou aqui para te ajudar a se manter seguro! Se tiver qualquer outra mensagem que precise de análise, pode me enviar.
+Estou aqui para te ajudar a se manter seguro! Se tiver qualquer outra mensagem que precise de análise, pode me enviar."
 
 ---
 
@@ -50,13 +50,13 @@ Estou aqui para te ajudar a se manter seguro! Se tiver qualquer outra mensagem q
 > Universidade Estadual do Ceará – UECE"
 
 **Análise da IA:**
-Olá! Sou o Digital Guardian, seu protetor virtual da LARCES/UECE. Analisei a mensagem que você me enviou e, com base em minha expertise, preciso te alertar que ela foi classificada como **MALICIOSA**.
+"Olá! Sou o Digital Guardian, seu protetor virtual da LARCES/UECE. Analisei a mensagem que você me enviou e, com base em minha expertise, preciso te alertar que ela foi classificada como **MALICIOSA**.
 
 Fiquei preocupado(a) ao perceber que, embora a mensagem se apresente como sendo da 'Universidade Estadual do Ceará – UECE' e fale sobre um 'Prêmio de Incentivo' – o que pode parecer muito tentador –, o link que ela pede para você clicar (https://linksshortcut.com/NfpCg) **NÃO** pertence à UECE. Ele tenta te enganar, mostrando um endereço que *parece* da UECE, mas o destino real é outro, e isso é um forte indício de phishing.
 
 Para sua segurança, **NÃO clique neste link!** Clicar nele pode te levar a um site falso que tenta roubar suas informações pessoais ou instalar programas maliciosos no seu dispositivo. Mesmo que a análise técnica do link tenha sido 'INDETERMINADO', a forma como ele foi apresentado é uma tática muito comum de golpistas.
 
-Se você tiver dúvidas sobre a veracidade de um prêmio ou comunicação da UECE, o ideal é sempre verificar diretamente pelos canais oficiais da Universidade (site oficial ou contato telefônico) e nunca usar links de e-mails ou mensagens suspeitas. Estou aqui para te ajudar a se manter seguro(a)!
+Se você tiver dúvidas sobre a veracidade de um prêmio ou comunicação da UECE, o ideal é sempre verificar diretamente pelos canais oficiais da Universidade (site oficial ou contato telefônico) e nunca usar links de e-mails ou mensagens suspeitas. Estou aqui para te ajudar a se manter seguro(a)!"
 
 
 
@@ -84,19 +84,19 @@ Canais de atendimento:
 * Redes sociais: @Cearaprev (Instagram e Facebook)
 O Degep/Uece divulga a lista de servidores da Universidade que ainda não realizaram os procedimentos de Recadastramento e/ou Prova de Vida e que devem regularizar a situação com urgência, a fim de evitar o bloqueio de vencimentos (confira aqui).
 
-O Departamento também divulga a lista de servidores que já tiveram seus vencimentos bloqueados (confira aqui). Após a realização do Recadastramento e da Prova de Vida, o desbloqueio ocorre em até três dias úteis.
+O Departamento também divulga a lista de servidores que já tiveram seus vencimentos bloqueados (confira aqui). Após a realização do Recadastramento e da Prova de Vida, o desbloqueio ocorre em até três dias úteis."
 
-"
+
 
 **Análise da IA:**
- Guardião Digital alerta: Cuidado! Esta mensagem, embora pareça oficial, apresenta características claras de uma tentativa de phishing com alto risco **MALICIOUS**. Sua segurança é a nossa prioridade!
+"Guardião Digital alerta: Cuidado! Esta mensagem, embora pareça oficial, apresenta características claras de uma tentativa de phishing com alto risco **MALICIOUS**. Sua segurança é a nossa prioridade!
 
 Minha análise aprofundada revelou pontos críticos:
 * **Link Falso:** A parte mais preocupante é o link para o 'novo cadastro' (`globalindiaschool.org/uece.br.htm`). Mesmo que a análise técnica inicial tenha indicado 'SEGURO' (o que pode significar que o site ainda não foi categorizado como malicioso por sistemas automatizados no momento da varredura), o domínio `globalindiaschool.org` *não é* um site oficial da UECE ou da Cearaprev. Isso é uma tática de enganação para fazer você pensar que o link é legítimo pela semelhança do texto.
 * **Pressão Psicológica:** A mensagem usa táticas de engenharia social, como a ameaça de 'bloqueio de vencimentos' e o apelo à 'urgência', para induzir você a agir rapidamente sem pensar, clicando no link suspeito.
 * **Impersonificação Sofisticada:** Eles usam a identidade da UECE e Cearaprev de forma convincente (remetente, assunto, textos, até canais de contato verdadeiros no rodapé) para mascarar a intenção maliciosa do link.
 
-**Minha recomendação urgente:** Não clique nos links fornecidos para o recadastramento. Para realizar a Prova de Vida ou Recadastramento, acesse sempre os canais oficiais da Cearaprev (site oficial, aplicativo 'Cearaprev On-line' baixado diretamente da App Store ou Google Play, ou ligue para os números de atendimento que você *já conhece* como sendo os verdadeiros). Por favor, apague esta mensagem e não interaja com ela. Fique protegido!
+**Minha recomendação urgente:** Não clique nos links fornecidos para o recadastramento. Para realizar a Prova de Vida ou Recadastramento, acesse sempre os canais oficiais da Cearaprev (site oficial, aplicativo 'Cearaprev On-line' baixado diretamente da App Store ou Google Play, ou ligue para os números de atendimento que você *já conhece* como sendo os verdadeiros). Por favor, apague esta mensagem e não interaja com ela. Fique protegido!"
 
 
 ## 4. Falsa divulgação de bolsistas
@@ -113,7 +113,7 @@ Se tiver alguma dúvida, não hesite em contactar-nos."
 
 
 **Análise da IA:**
-Olá! Sou o Digital Guardian, seu protetor digital na UECE, e estou aqui para zelar pela sua segurança!
+"Olá! Sou o Digital Guardian, seu protetor digital na UECE, e estou aqui para zelar pela sua segurança!
 
 Analisei a mensagem que você me enviou e, com base em nossa metodologia rigorosa, preciso informar que ela representa um risco **MALICIOSO**. É de extrema importância que você não interaja com ela, por favor!
 
@@ -123,6 +123,6 @@ Deixe-me explicar o porquê, para que você possa entender melhor e se proteger 
 2. **Engenharia Social Cativante:** A oferta de uma 'bolsa de estudos' e a afirmação de que 'seu nome consta na lista' são técnicas para despertar seu interesse e curiosidade, incentivando o clique impulsivo sem a devida checagem.
 3. **Análise Técnica Indeterminada:** Nosso sistema não conseguiu verificar a segurança do link (ficou como 'INDETERMINADO'). Quando isso ocorre, já ligamos um alerta amarelo. No entanto, a combinação desse resultado com o domínio não oficial e a engenharia social transforma o alerta em vermelho.
 
-Minha recomendação mais forte é: **exclua esta mensagem imediatamente e, sob hipótese alguma, clique no link, preencha formulários ou forneça qualquer tipo de informação pessoal.** Se você tiver dúvidas sobre bolsas de estudo, o caminho mais seguro é sempre procurar os canais oficiais da UECE diretamente.
+Minha recomendação mais forte é: **exclua esta mensagem imediatamente e, sob hipótese alguma, clique no link, preencha formulários ou forneça qualquer tipo de informação pessoal.** Se você tiver dúvidas sobre bolsas de estudo, o caminho mais seguro é sempre procurar os canais oficiais da UECE diretamente."
 
 ---
