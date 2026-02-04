@@ -3,7 +3,7 @@ name: Sync to Hugging Face Space
 on:
   push:
     branches:
-      - main  # Mude para 'master' se for o caso
+      - main  # Certifique-se de que sua branch principal se chama 'main'
 
 jobs:
   sync-to-huggingface:
@@ -13,11 +13,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          lfs: true  # Caso use Git LFS para arquivos grandes
+          lfs: true
 
       - name: Push to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git remote add huggingface https://user:$HF_TOKEN@huggingface.co/spaces/${{ secrets.PedroMikhael }}/${{ secrets.VerificAI }}
+          # Adiciona o remote usando seu usuário e o token configurado nos Secrets do GitHub
+          git remote add huggingface https://PedroMikhael:$HF_TOKEN@huggingface.co/spaces/PedroMikhael/VerificAI
+          
+          # Força o push para garantir que o Space reflita exatamente o que está no seu GitHub
           git push huggingface main --force
