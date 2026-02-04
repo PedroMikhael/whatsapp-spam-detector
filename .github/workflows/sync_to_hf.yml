@@ -1,0 +1,23 @@
+name: Sync to Hugging Face Space
+
+on:
+  push:
+    branches:
+      - main  # Mude para 'master' se for o caso
+
+jobs:
+  sync-to-huggingface:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true  # Caso use Git LFS para arquivos grandes
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git remote add huggingface https://user:$HF_TOKEN@huggingface.co/spaces/${{ secrets.PedroMikhael }}/${{ secrets.VerificAI }}
+          git push huggingface main --force
