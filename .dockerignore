@@ -1,0 +1,54 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+venv/
+env/
+.venv/
+*.egg-info/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Credentials (NUNCA enviar para o container)
+credentials.json
+token.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Django
+db.sqlite3
+staticfiles/
+media/
+
+# ChromaDB - INCLUIR no build (tem os 5461 vetores)
+!chroma_db/
+
+# Logs
+*.log
+email_ollama_output.log
+
+# Temporary
+tmp/
+/tmp/
+*.tmp
+
+# Other
+*.png
+*.md
+!README.md
+metrics/
+evaluate/
+Dockerfile
+.dockerignore
