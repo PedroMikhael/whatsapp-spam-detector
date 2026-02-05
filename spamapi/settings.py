@@ -39,9 +39,15 @@ ROOT_URLCONF = 'spamapi.urls'
 
 WSGI_APPLICATION = 'spamapi.wsgi.application'
 
+# Configuração do banco de dados
+# No HF Spaces, usa /data para persistência entre rebuilds
+import os as _os
+_data_dir = '/data' if _os.path.isdir('/data') else str(BASE_DIR)
+_db_path = f'sqlite:///{_data_dir}/db.sqlite3'
+
 DATABASES = {
     'default': dj_database_url.config(
-        default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
+        default=_db_path,
         conn_max_age=600
     )
 }
