@@ -52,6 +52,10 @@ RUN SECRET_KEY=build-dummy-key \
     SAFE_BROWSING_API_KEY=dummy \
     python manage.py collectstatic --noinput
 
+# Construir o banco vetorial ChromaDB com os datasets de email/sms
+# Isso demora alguns minutos no primeiro build mas fica cacheado depois
+RUN python build_vector_db.py
+
 # Expor porta (Hugging Face usa 7860 por padrão)
 EXPOSE 7860
 
