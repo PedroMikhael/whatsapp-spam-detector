@@ -55,6 +55,9 @@ RUN SECRET_KEY=build-dummy-key \
 # Expor porta (Hugging Face usa 7860 por padrão)
 EXPOSE 7860
 
-# Comando de inicialização
-# Usar gunicorn para produção com uvicorn workers para melhor performance
-CMD ["python", "-m", "gunicorn", "spamapi.wsgi:application", "--bind", "0.0.0.0:7860", "--workers", "2", "--threads", "4", "--timeout", "120"]
+# Copiar e dar permissão ao script de inicialização
+COPY --chown=user:user start.sh .
+RUN chmod +x start.sh
+
+# Comando de inicialização - roda email_bot em background + Django
+CMD ["./start.sh"]

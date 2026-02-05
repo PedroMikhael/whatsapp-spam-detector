@@ -29,13 +29,30 @@ CHECK_INTERVAL_SECONDS = 60
 def authenticate():
     """Autentica com a API do Gmail usando o fluxo manual para servidores."""
     creds = None
-    if os.path.exists("token.json"):
+    
+    # Primeiro, tentar ler de variável de ambiente (para Hugging Face Spaces)
+    token_json_env = os.environ.get("TOKEN_JSON")
+    if token_json_env:
+        try:
+            import json
+            token_data = json.loads(token_json_env)
+            creds = Credentials.from_authorized_user_info(token_data, SCOPES)
+            print("Token carregado de variável de ambiente.")
+        except Exception as e:
+            print(f"Erro ao carregar token de env: {e}")
+    
+    # Fallback: ler de arquivo local
+    if not creds and os.path.exists("token.json"):
         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             print("Renovando token de acesso...")
             creds.refresh(Request())
+            # Se veio de env, não salvar em arquivo
+            if not token_json_env:
+                with open("token.json", "w") as token:
+                    token.write(creds.to_json())
         else:
             print("Nenhum token válido encontrado. Iniciando autorização manual.")
             flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
@@ -45,9 +62,8 @@ def authenticate():
             code = input('Digite o código de autorização do navegador aqui: ')
             flow.fetch_token(code=code)
             creds = flow.credentials
-
-        with open("token.json", "w") as token:
-            token.write(creds.to_json())
+            with open("token.json", "w") as token:
+                token.write(creds.to_json())
 
     print("Autenticação bem-sucedida.")
     return build("gmail", "v1", credentials=creds)
