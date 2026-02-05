@@ -123,8 +123,10 @@ def check_and_process_emails(service):
 def send_reply(service, to, subject, message_text, feedback_id):
     """Cria e envia um e-mail de resposta em formato HTML com links de feedback."""
     
-    link_correto = f"https://chatbot-spam.duckdns.org/feedback/{feedback_id}/correto/"
-    link_incorreto = f"https://chatbot-spam.duckdns.org/feedback/{feedback_id}/incorreto/"
+    # URL base - usa variável de ambiente ou fallback para HF Space
+    base_url = os.environ.get("FEEDBACK_BASE_URL", "https://pedromikhael-verificai.hf.space")
+    link_correto = f"{base_url}/feedback/{feedback_id}/correto/"
+    link_incorreto = f"{base_url}/feedback/{feedback_id}/incorreto/"
 
     html_content = f"""
     <html>
