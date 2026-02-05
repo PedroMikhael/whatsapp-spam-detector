@@ -43,8 +43,14 @@ COPY --chown=user:user . .
 # Criar diretório para ChromaDB e static files
 RUN mkdir -p chroma_db static
 
-# Coletar arquivos estáticos do Django
-RUN python manage.py collectstatic --noinput
+# Coletar arquivos estáticos do Django (usando valores dummy apenas para build)
+RUN SECRET_KEY=build-dummy-key \
+    WHATSAPP_VERIFY_TOKEN=dummy \
+    WHATSAPP_ACCESS_TOKEN=dummy \
+    WHATSAPP_PHONE_NUMBER_ID=dummy \
+    GEMINI_API_KEY=dummy \
+    SAFE_BROWSING_API_KEY=dummy \
+    python manage.py collectstatic --noinput
 
 # Expor porta (Hugging Face usa 7860 por padrão)
 EXPOSE 7860
