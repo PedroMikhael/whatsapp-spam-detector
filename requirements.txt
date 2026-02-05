@@ -17,6 +17,10 @@ google-generativeai
 google-api-python-client
 google-auth-oauthlib
 
+# Ollama Cloud 
+ollama
+
+
 # LangChain (use versões compatíveis)
 langchain-google-genai
 langchain-community

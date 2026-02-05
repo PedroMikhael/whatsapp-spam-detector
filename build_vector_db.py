@@ -5,13 +5,14 @@ from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-
+# Limite de documentos para evitar timeout no HF Spaces build
+# 2500 de cada dataset = 5000 total, gerando ~45k chunks (suficiente para RAG)
+MAX_ROWS_PER_DATASET = 2500
 
 DATASETS = [
     "database/email_dataset.csv",
     "database/sms_dataset.csv"
 ]
-
 
 def load_dataset(path):
     print(f"-> Carregando dados do arquivo: {os.path.abspath(path)}")
@@ -20,7 +21,8 @@ def load_dataset(path):
         print(f"❌ Arquivo não encontrado: {path}")
         return []
 
-    df = pd.read_csv(path)
+    # Limita número de linhas para evitar timeout no HF Spaces
+    df = pd.read_csv(path, nrows=MAX_ROWS_PER_DATASET)
 
     # Detecta automaticamente nome das colunas
     possible_text_cols = ["text", "message", "Email Text", "Message"]

@@ -3,12 +3,27 @@ import requests
 import json
 import re
 from django.conf import settings
-import google.generativeai as genai
+from ollama import Client
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
-genai.configure(api_key=settings.GEMINI_API_KEY)
+# Configurar cliente Ollama Cloud
+OLLAMA_API_KEY = os.environ.get("OLLAMA_CLOUD_API_KEY") or os.environ.get("OLLAMA_API_KEY")
+MODELO_OLLAMA = os.environ.get("OLLAMA_MODEL", "gemini-3-flash-preview:cloud")
+
+if OLLAMA_API_KEY:
+    ollama_client = Client(
+        host="https://ollama.com",
+        headers={'Authorization': f'Bearer {OLLAMA_API_KEY}'}
+    )
+    print(f"✅ Ollama Cloud configurado com modelo: {MODELO_OLLAMA}")
+else:
+    ollama_client = None
+    print("⚠️ OLLAMA_CLOUD_API_KEY não configurada. Usando fallback para Gemini.")
+    # Fallback para Gemini se Ollama não estiver configurado
+    import google.generativeai as genai
+    genai.configure(api_key=settings.GEMINI_API_KEY)
 
 try:
     embedding_function = HuggingFaceEmbeddings(model_name="BAAI/bge-small-en-v1.5")
@@ -66,16 +81,7 @@ def verificar_link_com_safe_browsing(link: str) -> str:
         return "INDETERMINADO (Verification failed)"
 
 
-def analisar_com_gemini(texto: str) -> dict:
-    links_encontrados = re.findall(r'(https?://\S+)', texto)
-    resultado_safe_browsing = "Nenhum link na mensagem."
-    if links_encontrados:
-        primeiro_link = links_encontrados[0]
-        resultado_safe_browsing = verificar_link_com_safe_browsing(primeiro_link)
-    
-    contexto_historico = buscar_exemplos_similares(texto)
-
-    prompt = f"""
+PROMPT_SISTEMA = """
     <ROLE>
     You are the "Digital Guardian," a highly specialized and elite cybersecurity AI agent. You were developed as a research project by LARCES (Networking and Security Laboratory) at the State University of Ceará (UECE). Your expertise is the forensic analysis of WhatsApp and email text messages in Brazilian Portuguese. Your communication is friendly, protective, and didactic.
     </ROLE>
@@ -85,12 +91,6 @@ def analisar_com_gemini(texto: str) -> dict:
     1.  **PROTECT (Priority Maximum):** Perform a methodical and deep analysis of the incoming message to determine its risk level.
     2.  **INTERACT:** If the risk is null (SAFE), act as a helpful virtual assistant and engage the user in a natural conversation.
     </MISSION>
-
-    <CONTEXT>
-    <USER_MESSAGE>{texto}</USER_MESSAGE>
-    <TECHNICAL_LINK_ANALYSIS_RESULT>{resultado_safe_browsing}</TECHNICAL_LINK_ANALYSIS_RESULT>
-    {contexto_historico} 
-    </CONTEXT>
 
     <INSTRUCTIONS>
     Follow these steps rigorously:
@@ -113,6 +113,26 @@ def analisar_com_gemini(texto: str) -> dict:
       "user_response": "The exact and elaborated Portuguese text to be sent back to the user."
     }}
     </INSTRUCTIONS>
+"""
+
+
+def analisar_com_gemini(texto: str) -> dict:
+    """Analisa o texto usando Ollama Cloud ou fallback para Gemini."""
+    
+    links_encontrados = re.findall(r'(https?://\S+)', texto)
+    resultado_safe_browsing = "Nenhum link na mensagem."
+    if links_encontrados:
+        primeiro_link = links_encontrados[0]
+        resultado_safe_browsing = verificar_link_com_safe_browsing(primeiro_link)
+    
+    contexto_historico = buscar_exemplos_similares(texto)
+
+    prompt_usuario = f"""
+    <CONTEXT>
+    <USER_MESSAGE>{texto}</USER_MESSAGE>
+    <TECHNICAL_LINK_ANALYSIS_RESULT>{resultado_safe_browsing}</TECHNICAL_LINK_ANALYSIS_RESULT>
+    {contexto_historico} 
+    </CONTEXT>
     
     ---
     **MENSAGEM REAL PARA ANÁLISE:**
@@ -120,9 +140,26 @@ def analisar_com_gemini(texto: str) -> dict:
     """
     
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(prompt)
-        cleaned_response = response.text.strip().replace("`", "").replace("json", "")
+        # Usar Ollama Cloud se disponível
+        if ollama_client:
+            response = ollama_client.chat(
+                model=MODELO_OLLAMA,
+                messages=[
+                    {'role': 'system', 'content': PROMPT_SISTEMA},
+                    {'role': 'user', 'content': prompt_usuario}
+                ]
+            )
+            resposta_ia = response['message']['content']
+            print(f"Análise do Ollama ({MODELO_OLLAMA}) recebida com sucesso.")
+        else:
+            # Fallback para Gemini
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            response = model.generate_content(PROMPT_SISTEMA + "\n" + prompt_usuario)
+            resposta_ia = response.text
+            print("Análise do Gemini (fallback) recebida com sucesso.")
+        
+        # Processar resposta JSON
+        cleaned_response = resposta_ia.strip().replace("`", "").replace("json", "")
         match = re.search(r'\{.*\}', cleaned_response, re.DOTALL)
         if not match:
             raise ValueError("Nenhum JSON válido encontrado na resposta da IA.")
@@ -131,11 +168,11 @@ def analisar_com_gemini(texto: str) -> dict:
         if "risk_level" not in resultado_json or "user_response" not in resultado_json:
              raise ValueError("A resposta da IA não contém as chaves esperadas.")
 
-        print("Análise do Gemini recebida com sucesso:", resultado_json)
+        print("Análise processada:", resultado_json)
         return resultado_json
 
     except Exception as e:
-        print(f"Erro ao chamar ou processar a resposta da API do Gemini: {e}")
+        print(f"Erro ao chamar ou processar a resposta da API: {e}")
         return {
             "risk_level": "INDETERMINADO",
             "analysis_details": [f"Erro interno ao processar a mensagem com a IA: {e}"],
