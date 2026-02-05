@@ -23,6 +23,9 @@ schema_view = get_schema_view(
 urlpatterns = [
     
     path('', RedirectView.as_view(url='/swagger/', permanent=False)),
+    
+    # Health check endpoint simples
+    path('health/', lambda request: __import__('django.http', fromlist=['JsonResponse']).JsonResponse({'status': 'ok', 'message': 'VerificAI is running!'})),
 
     path('admin/', admin.site.urls),
 

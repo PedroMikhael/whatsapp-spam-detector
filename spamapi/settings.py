@@ -6,8 +6,9 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
-DEBUG = False  
+DEBUG = config('DEBUG', default='True', cast=bool)  # Habilitar debug via env var
 ALLOWED_HOSTS = ['18.221.25.182', '127.0.0.1', 'localhost', '.ngrok-free.app', 'chatbot-spam.duckdns.org', '.hf.space', '*']
+CSRF_TRUSTED_ORIGINS = ['https://*.hf.space', 'https://huggingface.co']
 
 INSTALLED_APPS = [
     'jazzmin',
