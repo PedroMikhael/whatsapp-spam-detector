@@ -1,3 +1,12 @@
+---
+title: VerificAI - Spam Detector
+emoji: 🛡️
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+---
+
 # VerificAI 
 
 **VerificAI: Proteção inteligente para suas mensagens.**
