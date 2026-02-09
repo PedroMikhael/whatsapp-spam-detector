@@ -24,7 +24,7 @@ from detector.models import Feedback
 
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
-CHECK_INTERVAL_SECONDS = 60 
+CHECK_INTERVAL_SECONDS = 10 
 
 def authenticate():
     """Autentica com a API do Gmail usando o fluxo manual para servidores."""
