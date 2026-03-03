@@ -19,7 +19,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'spamapi.settings') 
 django.setup()
-from detector.services import analisar_com_gemini
+from detector.services import analisar_com_IA
 from detector.models import Feedback 
 
 
@@ -98,7 +98,7 @@ def check_and_process_emails(service):
 
             email_body = base64.urlsafe_b64decode(email_body_encoded).decode("utf-8", errors='ignore')
 
-            resultado_analise = analisar_com_gemini(email_body)
+            resultado_analise = analisar_com_IA(email_body)
             mensagem_de_resposta = resultado_analise["user_response"]
 
             nova_analise = Feedback.objects.create(
@@ -110,7 +110,7 @@ def check_and_process_emails(service):
             
             print(f"Análise da IA salva no banco com ID: {nova_analise.id}")
 
-            send_reply(service, sender, subject, mensagem_de_resposta, nova_analise.id)
+            send_reply(service, sender, subject, mensagem_de_resposta, nova_analise.id, resultado_analise.get('risk_level', 'INDETERMINADO'))
 
             service.users().messages().modify(userId="me", id=message_info["id"], body={'removeLabelIds': ['UNREAD']}).execute()
             print("--- RESPOSTA ENVIADA E E-MAIL MARCADO COMO LIDO ---")
@@ -120,17 +120,28 @@ def check_and_process_emails(service):
     except Exception as e:
         print(f"Ocorreu um erro inesperado no processamento: {e}")
 
-def send_reply(service, to, subject, message_text, feedback_id):
-    """Cria e envia um e-mail de resposta em formato HTML com links de feedback."""
+def send_reply(service, to, subject, message_text, feedback_id, risk_level="INDETERMINADO"):
+    """Cria e envia um e-mail de resposta em HTML com semáforo e links de feedback."""
     
-    # URL base - usa variável de ambiente ou fallback para HF Space
     base_url = os.environ.get("FEEDBACK_BASE_URL", "https://pedromikhael-verificai.hf.space")
     link_correto = f"{base_url}/feedback/{feedback_id}/correto/"
     link_incorreto = f"{base_url}/feedback/{feedback_id}/incorreto/"
 
+    # Mapear risk_level para imagem do semáforo
+    semaforo_map = {
+        "SAFE": "semaforoVerde.png",
+        "SUSPICIOUS": "semaforoAmarelo.png",
+        "MALICIOUS": "semaforoVermelho.png",
+    }
+    semaforo_img = semaforo_map.get(risk_level, "semaforoAmarelo.png")
+    semaforo_url = f"{base_url}/media/{semaforo_img}"
+
     html_content = f"""
     <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <img src="{semaforo_url}" alt="Classificação: {risk_level}" style="width: 80px; height: auto;">
+            </div>
             <p>{message_text.replace(chr(10), '<br>')}</p>
             <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
             <p style="font-size: 14px; color: #555;"><i>Minha análise foi útil?</i></p>

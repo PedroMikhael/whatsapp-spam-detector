@@ -23,5 +23,13 @@ else
     echo "TOKEN_JSON não configurado, email_bot não será iniciado."
 fi
 
+# Self-ping keep-alive (evita que o HF Space durma por inatividade)
+echo "Iniciando self-ping keep-alive (a cada 25 min)..."
+(while true; do
+    sleep 1500
+    curl -s http://localhost:7860/health/ > /dev/null 2>&1
+    echo "[KEEP-ALIVE] Ping enviado em $(date)"
+done) &
+
 # Rodar o Django com gunicorn
 exec python -m gunicorn spamapi.wsgi:application --bind 0.0.0.0:7860 --workers 2 --threads 4 --timeout 120

@@ -1,40 +1,49 @@
-
-
 from django.contrib import admin
 from django.urls import path, re_path
+from django.conf import settings
+from django.conf.urls.static import static
 from django.views.generic import RedirectView
-from detector.views import webhook_whatsapp
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from detector.views import webhook_whatsapp, registrar_feedback
-from detector.views import processar_feedback_treinamento
+from detector.views import (
+    analisar_mensagem,
+    listar_analises,
+    detalhe_analise,
+    treinar_rag,
+    webhook_whatsapp,
+    registrar_feedback,
+    processar_feedback_treinamento,
+)
 
 schema_view = get_schema_view(
    openapi.Info(
-      title="WhatsApp Spam Detector API",
+      title="VerificAI API",
       default_version='v1',
-      description="API inteligente para detectar spam em mensagens do WhatsApp.",
+      description="API de detecção de spam e phishing em emails — LARCES/UECE",
    ),
    public=True,
    permission_classes=(permissions.AllowAny,),
 )
 
 urlpatterns = [
-    
     path('', RedirectView.as_view(url='/swagger/', permanent=False)),
-    
-    # Health check endpoint simples
-    path('health/', lambda request: __import__('django.http', fromlist=['JsonResponse']).JsonResponse({'status': 'ok', 'message': 'VerificAI is running!'})),
-
+    path('health/', lambda request: __import__('django.http', fromlist=['JsonResponse']).JsonResponse({'status': 'ok'})),
     path('admin/', admin.site.urls),
 
-    # URL do Webhook do WhatsApp
+    # API endpoints
+    path('api/analisar/', analisar_mensagem, name='analisar_mensagem'),
+    path('api/analises/', listar_analises, name='listar_analises'),
+    path('api/analises/<int:analise_id>/', detalhe_analise, name='detalhe_analise'),
+    path('api/treinar/', treinar_rag, name='treinar_rag'),
+
+    # WhatsApp webhook
     re_path(r'^api/spam/?$', webhook_whatsapp, name="webhook_whatsapp"),
 
-    # URL da documentação do Swagger
+    # Swagger
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
 
+    # Feedback links (email)
     path('feedback/<int:feedback_id>/<str:resultado>/', registrar_feedback, name='registrar_feedback'),
     path('feedback/', processar_feedback_treinamento, name='feedback_treinamento'),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
