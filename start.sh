@@ -1,4 +1,5 @@
 #!/bin/bash
+# Startup script para rodar Django + Email Bot
 
 echo "===== Application Startup at $(date) ====="
 
