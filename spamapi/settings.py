@@ -41,14 +41,15 @@ ROOT_URLCONF = 'spamapi.urls'
 WSGI_APPLICATION = 'spamapi.wsgi.application'
 
 # Configuração do banco de dados
-# No HF Spaces, usa /data para persistência entre rebuilds
+# Supabase (PostgreSQL) em produção, SQLite como fallback local
 import os as _os
 _data_dir = '/data' if _os.path.isdir('/data') else str(BASE_DIR)
-_db_path = f'sqlite:///{_data_dir}/db.sqlite3'
+_sqlite_fallback = f'sqlite:///{_data_dir}/db.sqlite3'
+_database_url = config('DATABASE_URL', default=_sqlite_fallback)
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=_db_path,
+        default=_database_url,
         conn_max_age=600
     )
 }

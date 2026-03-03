@@ -14,8 +14,6 @@ from googleapiclient.errors import HttpError
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-
-
 import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'spamapi.settings') 
 django.setup()
@@ -30,7 +28,6 @@ def authenticate():
     """Autentica com a API do Gmail usando o fluxo manual para servidores."""
     creds = None
     
-    # Primeiro, tentar ler de variável de ambiente (para Hugging Face Spaces)
     token_json_env = os.environ.get("TOKEN_JSON")
     if token_json_env:
         try:
@@ -41,7 +38,6 @@ def authenticate():
         except Exception as e:
             print(f"Erro ao carregar token de env: {e}")
     
-    # Fallback: ler de arquivo local
     if not creds and os.path.exists("token.json"):
         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
 
@@ -49,7 +45,6 @@ def authenticate():
         if creds and creds.expired and creds.refresh_token:
             print("Renovando token de acesso...")
             creds.refresh(Request())
-            # Se veio de env, não salvar em arquivo
             if not token_json_env:
                 with open("token.json", "w") as token:
                     token.write(creds.to_json())
@@ -69,14 +64,16 @@ def authenticate():
     return build("gmail", "v1", credentials=creds)
 
 def check_and_process_emails(service):
-    """Verifica por e-mails não lidos, os analisa com Gemini e responde."""
+    """Verifica por e-mails não lidos, analisa com IA e responde."""
     try:
         results = service.users().messages().list(userId="me", labelIds=["INBOX"], q="is:unread").execute()
         messages = results.get("messages", [])
 
         if not messages:
-            print(f"[{time.ctime()}] Nenhum e-mail novo encontrado.")
+            print(f"[{time.strftime('%d/%m/%Y %H:%M:%S')}] Nenhum e-mail novo. Próxima verificação em {CHECK_INTERVAL_SECONDS}s.")
             return
+
+        print(f"\n[{time.strftime('%d/%m/%Y %H:%M:%S')}] 📬 {len(messages)} e-mail(s) não lido(s) encontrado(s)!")
 
         for message_info in messages:
             msg = service.users().messages().get(userId="me", id=message_info["id"], format='full').execute()
@@ -85,9 +82,12 @@ def check_and_process_emails(service):
             subject = next((header["value"] for header in headers if header["name"].lower() == "subject"), "Sem Assunto")
             sender = next((header["value"] for header in headers if header["name"].lower() == "from"), "Remetente Desconhecido")
 
-            print(f"\n--- NOVO E-MAIL RECEBIDO ---")
-            print(f"De: {sender}")
-            print(f"Assunto: {subject}")
+            print(f"\n{'='*60}")
+            print(f" NOVO E-MAIL RECEBIDO")
+            print(f"   De: {sender}")
+            print(f"   Assunto: {subject}")
+            print(f"   ID: {message_info['id']}")
+            print(f"{'='*60}")
 
             if "data" in msg["payload"]["body"]:
                 email_body_encoded = msg["payload"]["body"]["data"]
@@ -97,28 +97,48 @@ def check_and_process_emails(service):
                 email_body_encoded = part["body"]["data"] if part else ""
 
             email_body = base64.urlsafe_b64decode(email_body_encoded).decode("utf-8", errors='ignore')
+            
+            preview = email_body[:200].replace('\n', ' ')
+            print(f"   Preview: {preview}...")
 
+            print(f"\n Analisando com IA...")
             resultado_analise = analisar_com_IA(email_body)
+            
+            risk_level = resultado_analise.get('risk_level', 'INDETERMINADO')
             mensagem_de_resposta = resultado_analise["user_response"]
+            
+            print(f"    Classificação: {risk_level}")
+            print(f"    Resposta: {mensagem_de_resposta[:150]}...")
 
             nova_analise = Feedback.objects.create(
                 mensagem_original=email_body,
                 remetente=sender,
-                risco_ia=resultado_analise.get('risk_level', 'INDETERMINADO'),
+                risco_ia=risk_level,
                 analise_ia=str(resultado_analise.get('analysis_details', ''))
             )
             
-            print(f"Análise da IA salva no banco com ID: {nova_analise.id}")
+            print(f"    Salvo no banco (Feedback ID: {nova_analise.id})")
 
-            send_reply(service, sender, subject, mensagem_de_resposta, nova_analise.id, resultado_analise.get('risk_level', 'INDETERMINADO'))
+            send_reply(service, sender, subject, mensagem_de_resposta, nova_analise.id, risk_level)
 
             service.users().messages().modify(userId="me", id=message_info["id"], body={'removeLabelIds': ['UNREAD']}).execute()
-            print("--- RESPOSTA ENVIADA E E-MAIL MARCADO COMO LIDO ---")
+            print(f"    Resposta enviada e e-mail marcado como lido!")
+            print(f"{'='*60}\n")
 
     except HttpError as error:
-        print(f"Ocorreu um erro na API do Gmail: {error}")
+        print(f"[{time.strftime('%d/%m/%Y %H:%M:%S')}] ❌ Erro na API do Gmail: {error}")
     except Exception as e:
-        print(f"Ocorreu um erro inesperado no processamento: {e}")
+        print(f"[{time.strftime('%d/%m/%Y %H:%M:%S')}] ❌ Erro inesperado: {e}")
+
+
+def _formatar_resposta_html(message_text):
+    """Converte markdown básico (**bold**) e quebras de linha para HTML."""
+    # Converter **texto** para <b>texto</b>
+    texto_html = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', message_text)
+    # Converter quebras de linha para <br>
+    texto_html = texto_html.replace('\n', '<br>')
+    return texto_html
+
 
 def send_reply(service, to, subject, message_text, feedback_id, risk_level="INDETERMINADO"):
     """Cria e envia um e-mail de resposta em HTML com semáforo e links de feedback."""
@@ -127,22 +147,25 @@ def send_reply(service, to, subject, message_text, feedback_id, risk_level="INDE
     link_correto = f"{base_url}/feedback/{feedback_id}/correto/"
     link_incorreto = f"{base_url}/feedback/{feedback_id}/incorreto/"
 
-    # Mapear risk_level para imagem do semáforo
+    # Mapear risk_level para imagem e cor
     semaforo_map = {
-        "SAFE": "semaforoVerde.png",
-        "SUSPICIOUS": "semaforoAmarelo.png",
-        "MALICIOUS": "semaforoVermelho.png",
+        "SAFE": {"img": "semaforoVerde.png", "cor": "#28a745"},
+        "SUSPICIOUS": {"img": "semaforoAmarelo.png", "cor": "#ffc107"},
+        "MALICIOUS": {"img": "semaforoVermelho.png", "cor": "#dc3545"},
     }
-    semaforo_img = semaforo_map.get(risk_level, "semaforoAmarelo.png")
-    semaforo_url = f"{base_url}/media/{semaforo_img}"
+    semaforo = semaforo_map.get(risk_level, semaforo_map["SUSPICIOUS"])
+    semaforo_url = f"https://huggingface.co/spaces/PedroMikhael/VerificAI/resolve/main/media/{semaforo['img']}"
+
+    # Converter markdown bold para HTML
+    resposta_html = _formatar_resposta_html(message_text)
 
     html_content = f"""
     <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6;">
             <div style="text-align: center; margin-bottom: 20px;">
-                <img src="{semaforo_url}" alt="Classificação: {risk_level}" style="width: 80px; height: auto;">
+                <img src="{semaforo_url}" alt="Semáforo {risk_level}" style="width: 80px; height: auto;">
             </div>
-            <p>{message_text.replace(chr(10), '<br>')}</p>
+            <p>{resposta_html}</p>
             <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
             <p style="font-size: 14px; color: #555;"><i>Minha análise foi útil?</i></p>
             <a href="{link_correto}" style="display: inline-block; padding: 10px 18px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px; margin-right: 10px; font-weight: bold;">👍 Sim, acertou</a>
@@ -166,9 +189,12 @@ def send_reply(service, to, subject, message_text, feedback_id, risk_level="INDE
     service.users().messages().send(userId="me", body=create_message).execute()
 
 if __name__ == "__main__":
-    print("Iniciando o bot de e-mail...")
+    print(f"\n{'='*60}")
+    print(f" VerificAI Email Bot iniciado")
+    print(f"   Intervalo de verificação: {CHECK_INTERVAL_SECONDS}s")
+    print(f"{'='*60}\n")
     gmail_service = authenticate()
-    print("Autenticação concluída. Iniciando verificação de e-mails...")
+    print(f"[{time.strftime('%d/%m/%Y %H:%M:%S')}] ✅ Autenticação concluída. Monitorando e-mails...\n")
     while True:
         check_and_process_emails(gmail_service)
         time.sleep(CHECK_INTERVAL_SECONDS)
