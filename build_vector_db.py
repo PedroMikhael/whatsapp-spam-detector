@@ -6,7 +6,7 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # Limite de documentos para evitar timeout no HF Spaces build
-# 2500 de cada dataset = 5000 total, gerando ~45k chunks (suficiente para RAG)
+# 2500 de cada dataset = 5000 total
 MAX_ROWS_PER_DATASET = 2500
 
 DATASETS = [

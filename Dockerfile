@@ -1,7 +1,3 @@
-# =============================================================================
-# Dockerfile para WhatsApp Spam Detector - Hugging Face Spaces
-# Este é um projeto Django com ChromaDB, LangChain e Gemini API
-# =============================================================================
 
 # Usar imagem Python slim para reduzir tamanho
 FROM python:3.11-slim
@@ -50,6 +46,8 @@ RUN SECRET_KEY=build-dummy-key \
     WHATSAPP_PHONE_NUMBER_ID=dummy \
     GEMINI_API_KEY=dummy \
     SAFE_BROWSING_API_KEY=dummy \
+    OLLAMA_API_KEY=dummy \
+    OLLAMA_API_KEY2=dummy \
     python manage.py collectstatic --noinput
 
 # Construir o banco vetorial ChromaDB com os datasets de email/sms
