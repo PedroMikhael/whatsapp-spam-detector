@@ -170,6 +170,10 @@ def send_reply(service, to, subject, message_text, feedback_id, risk_level="INDE
             <p style="font-size: 14px; color: #555;"><i>Minha análise foi útil?</i></p>
             <a href="{link_correto}" style="display: inline-block; padding: 10px 18px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px; margin-right: 10px; font-weight: bold;">👍 Sim, acertou</a>
             <a href="{link_incorreto}" style="display: inline-block; padding: 10px 18px; background-color: #dc3545; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">👎 Não, errou</a>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0 15px 0;">
+            <div style="text-align: center;">
+                <img src="https://huggingface.co/spaces/PedroMikhael/VerificAI/resolve/main/media/larcesLogo.png" alt="LARCES" style="width: 120px; height: auto;">
+            </div>
         </body>
     </html>
     """
