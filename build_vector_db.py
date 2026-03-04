@@ -1,13 +1,13 @@
 import os
 import pandas as pd
-from langchain_community.embeddings import HuggingFaceBgeEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # Limite de documentos para evitar timeout no HF Spaces build
-# 2500 de cada dataset = 5000 total
-MAX_ROWS_PER_DATASET = 2500
+# 5000 de cada dataset = 10000 total
+MAX_ROWS_PER_DATASET = 5000
 
 DATASETS = [
     "database/email_dataset.csv",
@@ -64,9 +64,9 @@ def main():
     chunks = splitter.split_documents(all_docs)
     print("   Total de chunks criados:", len(chunks))
 
-    # Embeddings
+    # Embeddings (usando langchain_huggingface atualizado)
     print("\n-> Carregando modelo de embeddings (bge-small)...")
-    embeddings = HuggingFaceBgeEmbeddings(model_name="BAAI/bge-small-en-v1.5")
+    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-small-en-v1.5")
 
     # Cria o banco vetorial
     print("\n-> Criando embeddings e populando o ChromaDB...")
@@ -76,8 +76,6 @@ def main():
         embedding=embeddings,
         persist_directory="chroma_db"
     )
-
-    vectordb.persist()
     print("\n✅ ChromaDB criado com sucesso!")
 
 

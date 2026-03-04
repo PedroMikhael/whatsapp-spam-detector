@@ -10,6 +10,10 @@ DEBUG = config('DEBUG', default='True', cast=bool)  # Habilitar debug via env va
 ALLOWED_HOSTS = ['18.221.25.182', '127.0.0.1', 'localhost', '.ngrok-free.app', 'chatbot-spam.duckdns.org', '.hf.space', '*']
 CSRF_TRUSTED_ORIGINS = ['https://*.hf.space', 'https://huggingface.co']
 
+# Proxy reverso do HF Spaces — informa ao Django que está atrás de HTTPS
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
 INSTALLED_APPS = [
     'jazzmin',
     'django.contrib.admin',
@@ -65,7 +69,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",
     "http://127.0.0.1:9000",
+    "https://pedromikhael-verificai.hf.space",
 ]
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # Permite tudo em dev
 
 TEMPLATES = [
     {

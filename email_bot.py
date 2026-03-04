@@ -147,14 +147,15 @@ def send_reply(service, to, subject, message_text, feedback_id, risk_level="INDE
     link_correto = f"{base_url}/feedback/{feedback_id}/correto/"
     link_incorreto = f"{base_url}/feedback/{feedback_id}/incorreto/"
 
-    # Mapear risk_level para imagem e cor
+    # Mapear risk_level para imagem, cor e label em português
     semaforo_map = {
-        "SAFE": {"img": "semaforoVerde.png", "cor": "#28a745"},
-        "SUSPICIOUS": {"img": "semaforoAmarelo.png", "cor": "#ffc107"},
-        "MALICIOUS": {"img": "semaforoVermelho.png", "cor": "#dc3545"},
+        "SAFE": {"img": "semaforoVerde.png", "cor": "#28a745", "label": "Segura"},
+        "SUSPICIOUS": {"img": "semaforoAmarelo.png", "cor": "#ffc107", "label": "Suspeita"},
+        "MALICIOUS": {"img": "semaforoVermelho.png", "cor": "#dc3545", "label": "Maliciosa"},
     }
     semaforo = semaforo_map.get(risk_level, semaforo_map["SUSPICIOUS"])
     semaforo_url = f"https://huggingface.co/spaces/PedroMikhael/VerificAI/resolve/main/media/{semaforo['img']}"
+    classificacao_pt = semaforo["label"]
 
     # Converter markdown bold para HTML
     resposta_html = _formatar_resposta_html(message_text)
@@ -163,7 +164,8 @@ def send_reply(service, to, subject, message_text, feedback_id, risk_level="INDE
     <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6;">
             <div style="text-align: center; margin-bottom: 20px;">
-                <img src="{semaforo_url}" alt="Semáforo {risk_level}" style="width: 80px; height: auto;">
+                <img src="{semaforo_url}" alt="Semáforo {classificacao_pt}" style="width: 80px; height: auto;">
+                <p style="font-size: 18px; font-weight: bold; color: {semaforo['cor']}; margin-top: 8px;">Classificação: {classificacao_pt}</p>
             </div>
             <p>{resposta_html}</p>
             <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">

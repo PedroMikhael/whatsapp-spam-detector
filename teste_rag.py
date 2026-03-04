@@ -1,6 +1,6 @@
 import os
 from decouple import config
-from langchain_community.embeddings import HuggingFaceBgeEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
 
@@ -11,7 +11,7 @@ except:
     exit()
 
 
-embedding_function = HuggingFaceBgeEmbeddings(model_name="BAAI/bge-small-en-v1.5")
+embedding_function = HuggingFaceEmbeddings(model_name="BAAI/bge-small-en-v1.5")
 
 print("Carregando banco de dados vetorial...")
 try:
