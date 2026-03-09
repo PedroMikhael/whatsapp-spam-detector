@@ -21,11 +21,22 @@ from .serializers import (
 )
 
 
+SEMAFORO_MAP = {
+    "SAFE": {"img": "semaforoVerde.png", "cor": "#28a745", "label": "Segura"},
+    "SUSPICIOUS": {"img": "semaforoAmarelo.png", "cor": "#ffc107", "label": "Suspeita"},
+    "MALICIOUS": {"img": "semaforoVermelho.png", "cor": "#dc3545", "label": "Maliciosa"},
+}
+SEMAFORO_DEFAULT = {"img": "semaforoAmarelo.png", "cor": "#ffc107", "label": "Indeterminado"}
+
+HF_MEDIA_BASE = "https://huggingface.co/spaces/PedroMikhael/VerificAI/resolve/main/media"
+LARCES_LOGO_URL = f"{HF_MEDIA_BASE}/larcesLogo.png"
+
+
 @swagger_auto_schema(
     method='post',
     operation_id='analisar_mensagem',
     operation_summary='Analisar Email/Mensagem',
-    operation_description='Envia um texto para análise de spam/phishing pela IA.',
+    operation_description='Envia um texto para análise de spam/phishing pela IA. Retorna classificação, motivo, precaução e imagem do semáforo.',
     request_body=AnalisarEmailSerializer,
     responses={200: AnaliseResponseSerializer, 400: 'Texto não fornecido'},
     tags=['Análise'],
@@ -43,12 +54,21 @@ def analisar_mensagem(request):
     try:
         resultado_analise = analisar_com_IA(texto, debug=True)
         
-        Feedback.objects.create(
+        feedback_obj = Feedback.objects.create(
             mensagem_original=texto,
             remetente=remetente,
             risco_ia=resultado_analise.get('risk_level', 'INDETERMINADO'),
-            analise_ia=str(resultado_analise.get('analysis_details', ''))
+            analise_ia=str(resultado_analise)
         )
+
+        # Enrich response with structured fields
+        risk_level = resultado_analise.get('risk_level', 'INDETERMINADO')
+        semaforo = SEMAFORO_MAP.get(risk_level, SEMAFORO_DEFAULT)
+
+        resultado_analise['classificacao'] = semaforo['label']
+        resultado_analise['semaforo_image_url'] = f"{HF_MEDIA_BASE}/{semaforo['img']}"
+        resultado_analise['feedback_id'] = feedback_obj.id
+        resultado_analise['analise_url'] = request.build_absolute_uri(f'/analise/{feedback_obj.id}/visualizar/')
         
         return Response(resultado_analise, status=status.HTTP_200_OK)
     
@@ -58,6 +78,164 @@ def analisar_mensagem(request):
             {"error": f"Erro interno: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+def visualizar_analise(request, feedback_id):
+    """Renderiza um relatório visual em HTML com semáforo, tabela e logo LARCES."""
+    try:
+        analise = Feedback.objects.get(id=feedback_id)
+    except Feedback.DoesNotExist:
+        return HttpResponse("<h1>Análise não encontrada.</h1>", status=404)
+
+    risk_level = analise.risco_ia or "INDETERMINADO"
+    semaforo = SEMAFORO_MAP.get(risk_level, SEMAFORO_DEFAULT)
+    semaforo_url = f"{HF_MEDIA_BASE}/{semaforo['img']}"
+    classificacao = semaforo['label']
+    cor = semaforo['cor']
+
+    # Extract motivo and precaucao from analise_ia if available
+    motivo = "Informação não disponível."
+    precaucao = "Informação não disponível."
+    try:
+        import ast
+        dados = ast.literal_eval(analise.analise_ia)
+        if isinstance(dados, dict):
+            motivo = dados.get('motivo', motivo)
+            precaucao = dados.get('precaucao', precaucao)
+        elif isinstance(dados, list):
+            motivo = "; ".join(dados)
+    except Exception:
+        if analise.analise_ia:
+            motivo = analise.analise_ia[:500]
+
+    base_url = request.build_absolute_uri('/')[:-1]
+    link_correto = f"{base_url}/feedback/{feedback_id}/correto/"
+    link_incorreto = f"{base_url}/feedback/{feedback_id}/incorreto/"
+
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>VerificAI - Análise #{feedback_id}</title>
+        <style>
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+            body {{
+                font-family: 'Segoe UI', Arial, sans-serif;
+                background: #f4f6f8;
+                color: #333;
+                min-height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: flex-start;
+                padding: 40px 20px;
+            }}
+            .card {{
+                background: #fff;
+                border-radius: 16px;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+                max-width: 640px;
+                width: 100%;
+                overflow: hidden;
+            }}
+            .header {{
+                background: {cor};
+                color: white;
+                text-align: center;
+                padding: 30px 20px 20px;
+            }}
+            .header img {{ width: 80px; height: auto; margin-bottom: 12px; }}
+            .header h2 {{ font-size: 22px; margin: 0; }}
+            .content {{ padding: 28px 32px; }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 8px;
+            }}
+            table th {{
+                text-align: left;
+                padding: 12px 16px;
+                background: #f8f9fa;
+                border-bottom: 2px solid #dee2e6;
+                font-size: 13px;
+                text-transform: uppercase;
+                color: #6c757d;
+                letter-spacing: 0.5px;
+            }}
+            table td {{
+                padding: 14px 16px;
+                border-bottom: 1px solid #eee;
+                font-size: 15px;
+                line-height: 1.5;
+            }}
+            .feedback-section {{
+                text-align: center;
+                padding: 20px 32px 8px;
+                border-top: 1px solid #eee;
+            }}
+            .feedback-section p {{
+                font-size: 14px;
+                color: #777;
+                margin-bottom: 12px;
+            }}
+            .btn {{
+                display: inline-block;
+                padding: 10px 22px;
+                color: white;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 14px;
+                margin: 0 6px;
+                transition: opacity 0.2s;
+            }}
+            .btn:hover {{ opacity: 0.85; }}
+            .btn-correct {{ background: #28a745; }}
+            .btn-incorrect {{ background: #dc3545; }}
+            .footer {{
+                text-align: center;
+                padding: 20px;
+                border-top: 1px solid #f0f0f0;
+            }}
+            .footer img {{ width: 100px; height: auto; opacity: 0.8; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="header">
+                <img src="{semaforo_url}" alt="Semáforo {classificacao}">
+                <h2>Classificação: {classificacao}</h2>
+            </div>
+            <div class="content">
+                <table>
+                    <tr>
+                        <th>Classificação</th>
+                        <td><strong style="color: {cor};">{classificacao}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Motivo</th>
+                        <td>{motivo}</td>
+                    </tr>
+                    <tr>
+                        <th>Precaução</th>
+                        <td>{precaucao}</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="feedback-section">
+                <p><em>Minha análise foi útil?</em></p>
+                <a href="{link_correto}" class="btn btn-correct">Sim, acertou</a>
+                <a href="{link_incorreto}" class="btn btn-incorrect">Não, errou</a>
+            </div>
+            <div class="footer">
+                <img src="{LARCES_LOGO_URL}" alt="LARCES - UECE">
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return HttpResponse(html)
 
 
 @swagger_auto_schema(

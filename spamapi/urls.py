@@ -8,6 +8,7 @@ from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from detector.views import (
     analisar_mensagem,
+    visualizar_analise,
     listar_analises,
     detalhe_analise,
     treinar_rag,
@@ -46,4 +47,7 @@ urlpatterns = [
     # Feedback links (email)
     path('feedback/<int:feedback_id>/<str:resultado>/', registrar_feedback, name='registrar_feedback'),
     path('feedback/', processar_feedback_treinamento, name='feedback_treinamento'),
+
+    # Visual report
+    path('analise/<int:feedback_id>/visualizar/', visualizar_analise, name='visualizar_analise'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

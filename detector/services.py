@@ -166,26 +166,27 @@ PROMPT_SISTEMA = """
 
     2. **CLASSIFICATION:** Assign ONE of: `SAFE`, `SUSPICIOUS`, or `MALICIOUS`.
 
-    3. **USER RESPONSE FORMAT (CRITICAL):**
-        Your `user_response` must follow this EXACT structure in Portuguese:
-        
-        Line 1: The classification in bold, e.g. "**Classificação: MALICIOUS**" or "**Classificação: SAFE**"
-        
-        Line 2-3: A SHORT explanation (2-3 sentences MAX) of WHY the message received this classification. Use simple, non-technical language that any person can understand. Do NOT include technical details like "análise de vetores", "engenharia social", API names, or security jargon.
-        
-        Line 4-5: A practical recommendation (1-2 sentences) telling the user what to DO. Examples: "Não clique em nenhum link desta mensagem.", "Apague este email imediatamente.", "Esta mensagem parece segura, pode prosseguir normalmente."
+    3. **RESPONSE FIELDS (CRITICAL):**
+        You must provide THREE separate fields in Portuguese:
+
+        - `motivo`: A SHORT explanation (2-3 sentences MAX) of WHY the message received this classification. Use simple, non-technical language that any person can understand. Do NOT include technical details like "análise de vetores", "engenharia social", API names, or security jargon. Write as if explaining to a non-technical family member.
+
+        - `precaucao`: A practical recommendation (1-2 sentences) telling the user what to DO. Examples: "Não clique em nenhum link desta mensagem.", "Apague este email imediatamente.", "Esta mensagem parece segura, pode prosseguir normalmente."
+
+        - `analysis_details`: A list of technical analysis points in English (for internal use, not shown to the user).
 
     4. **STYLE RULES:**
         - NEVER use generic chatbot closings like "Como posso te ajudar?" or "Posso ajudar com mais alguma coisa?"
-        - Keep the response SHORT and DIRECT. No long paragraphs.
+        - Keep it SHORT and DIRECT. No long paragraphs.
         - Write as if explaining to a non-technical family member.
 
     **OUTPUT FORMAT (Required and Strict):**
     Your final response MUST BE a single, valid JSON object and nothing else:
     {{
       "risk_level": "SAFE, SUSPICIOUS, or MALICIOUS",
-      "analysis_details": ["A list of strings with your technical analysis points (this is for internal use, not shown to the user)."],
-      "user_response": "The SHORT Portuguese response following the format above (classification + explanation + recommendation)."
+      "analysis_details": ["A list of strings with your technical analysis points (internal use only)."],
+      "motivo": "Short Portuguese explanation of WHY this classification was given.",
+      "precaucao": "Short Portuguese practical recommendation for the user."
     }}
     </INSTRUCTIONS>
 """
@@ -215,12 +216,11 @@ def analisar_com_IA(texto: str, debug: bool = False) -> dict:
                 f"Classificação: {feedback_existente.risco_ia}",
                 f"Data: {exemplo_exato['data']}"
             ],
-            "user_response": (
-                f"📋 Esta mensagem já foi analisada anteriormente pelo VerificAI.\n\n"
-                f"🔍 **Classificação anterior:** {feedback_existente.risco_ia}\n\n"
-                f"A mensagem é idêntica a uma que já consta em nosso banco de dados. "
-                f"Não foi necessário reprocessá-la pela IA."
-            )
+            "motivo": (
+                f"Esta mensagem já foi analisada anteriormente pelo VerificAI. "
+                f"Classificação anterior: {feedback_existente.risco_ia}."
+            ),
+            "precaucao": "A mensagem é idêntica a uma que já consta em nosso banco de dados. Não foi necessário reprocessá-la pela IA."
         }
         if debug:
             resultado["exemplo_exato"] = exemplo_exato
@@ -242,12 +242,11 @@ def analisar_com_IA(texto: str, debug: bool = False) -> dict:
                 f"Label: {label_chromadb}",
                 f"Classificação: {risk_level}"
             ],
-            "user_response": (
-                f"📋 Esta mensagem já foi analisada anteriormente pelo VerificAI.\n\n"
-                f"🔍 **Classificação anterior:** {risk_level}\n\n"
-                f"A mensagem é idêntica a uma que já consta em nosso banco de dados vetorial. "
-                f"Não foi necessário reprocessá-la pela IA."
-            )
+            "motivo": (
+                f"Esta mensagem já foi analisada anteriormente pelo VerificAI. "
+                f"Classificação anterior: {risk_level}."
+            ),
+            "precaucao": "A mensagem é idêntica a uma que já consta em nosso banco de dados vetorial. Não foi necessário reprocessá-la pela IA."
         }
         if debug:
             resultado["exemplo_exato"] = exemplo_exato
@@ -311,7 +310,8 @@ def analisar_com_IA(texto: str, debug: bool = False) -> dict:
             return {
                 "risk_level": "INDETERMINADO",
                 "analysis_details": [f"Todas as APIs falharam: {e}"],
-                "user_response": "Desculpe, não consegui processar sua mensagem neste momento. 🙁"
+                "motivo": "Não foi possível processar a análise neste momento pois todos os serviços de IA estão indisponíveis.",
+                "precaucao": "Por favor, tente novamente mais tarde."
             }
     
     # Processar resposta JSON
@@ -322,7 +322,7 @@ def analisar_com_IA(texto: str, debug: bool = False) -> dict:
             raise ValueError("Nenhum JSON válido na resposta da IA.")
         resultado_json = json.loads(match.group(0))
         
-        if "risk_level" not in resultado_json or "user_response" not in resultado_json:
+        if "risk_level" not in resultado_json or "motivo" not in resultado_json:
              raise ValueError("Resposta da IA sem chaves esperadas.")
 
         # Adicionar campos extras para Swagger
@@ -342,7 +342,8 @@ def analisar_com_IA(texto: str, debug: bool = False) -> dict:
         return {
             "risk_level": "INDETERMINADO",
             "analysis_details": [f"Erro ao processar resposta da IA: {e}"],
-            "user_response": "Desculpe, não consegui processar sua mensagem neste momento, tente novamente mais tarde. 🙁"
+            "motivo": "Ocorreu um erro ao processar a resposta da inteligência artificial.",
+            "precaucao": "Por favor, tente novamente mais tarde."
         }
 
 

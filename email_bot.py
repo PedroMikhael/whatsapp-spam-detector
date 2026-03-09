@@ -105,21 +105,22 @@ def check_and_process_emails(service):
             resultado_analise = analisar_com_IA(email_body)
             
             risk_level = resultado_analise.get('risk_level', 'INDETERMINADO')
-            mensagem_de_resposta = resultado_analise["user_response"]
+            motivo = resultado_analise.get('motivo', 'Análise indisponível.')
+            precaucao = resultado_analise.get('precaucao', '')
             
             print(f"    Classificação: {risk_level}")
-            print(f"    Resposta: {mensagem_de_resposta[:150]}...")
+            print(f"    Motivo: {motivo[:150]}...")
 
             nova_analise = Feedback.objects.create(
                 mensagem_original=email_body,
                 remetente=sender,
                 risco_ia=risk_level,
-                analise_ia=str(resultado_analise.get('analysis_details', ''))
+                analise_ia=str(resultado_analise)
             )
             
             print(f"    Salvo no banco (Feedback ID: {nova_analise.id})")
 
-            send_reply(service, sender, subject, mensagem_de_resposta, nova_analise.id, risk_level)
+            send_reply(service, sender, subject, motivo, precaucao, nova_analise.id, risk_level)
 
             service.users().messages().modify(userId="me", id=message_info["id"], body={'removeLabelIds': ['UNREAD']}).execute()
             print(f"    Resposta enviada e e-mail marcado como lido!")
@@ -140,8 +141,8 @@ def _formatar_resposta_html(message_text):
     return texto_html
 
 
-def send_reply(service, to, subject, message_text, feedback_id, risk_level="INDETERMINADO"):
-    """Cria e envia um e-mail de resposta em HTML com semáforo e links de feedback."""
+def send_reply(service, to, subject, motivo, precaucao, feedback_id, risk_level="INDETERMINADO"):
+    """Cria e envia um e-mail de resposta em HTML com semáforo, tabela e logo LARCES."""
     
     base_url = os.environ.get("FEEDBACK_BASE_URL", "https://pedromikhael-verificai.hf.space")
     link_correto = f"{base_url}/feedback/{feedback_id}/correto/"
@@ -155,26 +156,42 @@ def send_reply(service, to, subject, message_text, feedback_id, risk_level="INDE
     }
     semaforo = semaforo_map.get(risk_level, semaforo_map["SUSPICIOUS"])
     semaforo_url = f"https://huggingface.co/spaces/PedroMikhael/VerificAI/resolve/main/media/{semaforo['img']}"
-    classificacao_pt = semaforo["label"]
-
-    # Converter markdown bold para HTML
-    resposta_html = _formatar_resposta_html(message_text)
+    classificacao = semaforo["label"]
+    cor = semaforo["cor"]
+    larces_logo = "https://huggingface.co/spaces/PedroMikhael/VerificAI/resolve/main/media/larcesLogo.png"
 
     html_content = f"""
     <html>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6;">
-            <div style="text-align: center; margin-bottom: 20px;">
-                <img src="{semaforo_url}" alt="Semáforo {classificacao_pt}" style="width: 80px; height: auto;">
-                <p style="font-size: 18px; font-weight: bold; color: {semaforo['cor']}; margin-top: 8px;">Classificação: {classificacao_pt}</p>
-            </div>
-            <p>{resposta_html}</p>
-            <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
-            <p style="font-size: 14px; color: #555;"><i>Minha análise foi útil?</i></p>
-            <a href="{link_correto}" style="display: inline-block; padding: 10px 18px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px; margin-right: 10px; font-weight: bold;">👍 Sim, acertou</a>
-            <a href="{link_incorreto}" style="display: inline-block; padding: 10px 18px; background-color: #dc3545; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">👎 Não, errou</a>
-            <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0 15px 0;">
-            <div style="text-align: center;">
-                <img src="https://huggingface.co/spaces/PedroMikhael/VerificAI/resolve/main/media/larcesLogo.png" alt="LARCES" style="width: 120px; height: auto;">
+        <body style="font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; background: #f4f6f8; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+                <div style="background: {cor}; color: white; text-align: center; padding: 24px 16px;">
+                    <img src="{semaforo_url}" alt="Semáforo {classificacao}" style="width: 70px; height: auto; margin-bottom: 8px;">
+                    <h2 style="margin: 0; font-size: 20px;">Classificação: {classificacao}</h2>
+                </div>
+                <div style="padding: 24px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 10px 12px; background: #f8f9fa; border-bottom: 2px solid #dee2e6; font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: bold; letter-spacing: 0.5px; width: 120px;">Classificação</td>
+                            <td style="padding: 10px 12px; border-bottom: 1px solid #eee;"><strong style="color: {cor};">{classificacao}</strong></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px 12px; background: #f8f9fa; border-bottom: 2px solid #dee2e6; font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: bold; letter-spacing: 0.5px;">Motivo</td>
+                            <td style="padding: 10px 12px; border-bottom: 1px solid #eee;">{motivo}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px 12px; background: #f8f9fa; border-bottom: 2px solid #dee2e6; font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: bold; letter-spacing: 0.5px;">Precaução</td>
+                            <td style="padding: 10px 12px; border-bottom: 1px solid #eee;">{precaucao}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div style="text-align: center; padding: 16px 24px; border-top: 1px solid #eee;">
+                    <p style="font-size: 14px; color: #777; margin-bottom: 12px;"><em>Minha análise foi útil?</em></p>
+                    <a href="{link_correto}" style="display: inline-block; padding: 10px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 8px; margin-right: 8px; font-weight: 600; font-size: 14px;">Sim, acertou</a>
+                    <a href="{link_incorreto}" style="display: inline-block; padding: 10px 20px; background-color: #dc3545; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Não, errou</a>
+                </div>
+                <div style="text-align: center; padding: 16px; border-top: 1px solid #f0f0f0;">
+                    <img src="{larces_logo}" alt="LARCES - UECE" style="width: 100px; height: auto; opacity: 0.8;">
+                </div>
             </div>
         </body>
     </html>
