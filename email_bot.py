@@ -162,32 +162,75 @@ def send_reply(service, to, subject, motivo, precaucao, feedback_id, risk_level=
 
     html_content = f"""
     <html>
-        <body style="font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; background: #f4f6f8; padding: 20px;">
-            <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
-                <div style="background: {cor}; color: white; text-align: center; padding: 24px 16px;">
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                @media screen and (max-width: 480px) {{
+                    .email-wrapper {{
+                        padding: 8px !important;
+                    }}
+                    .email-container {{
+                        border-radius: 8px !important;
+                    }}
+                    .email-header {{
+                        padding: 18px 12px !important;
+                    }}
+                    .email-header h2 {{
+                        font-size: 18px !important;
+                    }}
+                    .email-body {{
+                        padding: 16px 12px !important;
+                    }}
+                    .email-table td {{
+                        display: block !important;
+                        width: 100% !important;
+                        box-sizing: border-box !important;
+                    }}
+                    .email-table .label-cell {{
+                        border-bottom: none !important;
+                        padding-bottom: 2px !important;
+                    }}
+                    .email-table .value-cell {{
+                        padding-top: 2px !important;
+                        padding-bottom: 14px !important;
+                    }}
+                    .btn-feedback {{
+                        display: block !important;
+                        width: 100% !important;
+                        margin-right: 0 !important;
+                        margin-bottom: 10px !important;
+                        text-align: center !important;
+                        box-sizing: border-box !important;
+                    }}
+                }}
+            </style>
+        </head>
+        <body class="email-wrapper" style="font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; background: #f4f6f8; padding: 20px; margin: 0;">
+            <div class="email-container" style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+                <div class="email-header" style="background: {cor}; color: white; text-align: center; padding: 24px 16px;">
                     <img src="{semaforo_url}" alt="Semáforo {classificacao}" style="width: 70px; height: auto; margin-bottom: 8px;">
                     <h2 style="margin: 0; font-size: 20px;">Classificação: {classificacao}</h2>
                 </div>
-                <div style="padding: 24px;">
-                    <table style="width: 100%; border-collapse: collapse;">
+                <div class="email-body" style="padding: 24px;">
+                    <table class="email-table" style="width: 100%; border-collapse: collapse;">
                         <tr>
-                            <td style="padding: 10px 12px; background: #f8f9fa; border-bottom: 2px solid #dee2e6; font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: bold; letter-spacing: 0.5px; width: 120px;">Classificação</td>
-                            <td style="padding: 10px 12px; border-bottom: 1px solid #eee;"><strong style="color: {cor};">{classificacao}</strong></td>
+                            <td class="label-cell" style="padding: 10px 12px; background: #f8f9fa; border-bottom: 2px solid #dee2e6; font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: bold; letter-spacing: 0.5px; width: 120px;">Classificação</td>
+                            <td class="value-cell" style="padding: 10px 12px; border-bottom: 1px solid #eee;"><strong style="color: {cor};">{classificacao}</strong></td>
                         </tr>
                         <tr>
-                            <td style="padding: 10px 12px; background: #f8f9fa; border-bottom: 2px solid #dee2e6; font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: bold; letter-spacing: 0.5px;">Motivo</td>
-                            <td style="padding: 10px 12px; border-bottom: 1px solid #eee;">{motivo}</td>
+                            <td class="label-cell" style="padding: 10px 12px; background: #f8f9fa; border-bottom: 2px solid #dee2e6; font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: bold; letter-spacing: 0.5px;">Motivo</td>
+                            <td class="value-cell" style="padding: 10px 12px; border-bottom: 1px solid #eee;">{motivo}</td>
                         </tr>
                         <tr>
-                            <td style="padding: 10px 12px; background: #f8f9fa; border-bottom: 2px solid #dee2e6; font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: bold; letter-spacing: 0.5px;">Precaução</td>
-                            <td style="padding: 10px 12px; border-bottom: 1px solid #eee;">{precaucao}</td>
+                            <td class="label-cell" style="padding: 10px 12px; background: #f8f9fa; border-bottom: 2px solid #dee2e6; font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: bold; letter-spacing: 0.5px;">Precaução</td>
+                            <td class="value-cell" style="padding: 10px 12px; border-bottom: 1px solid #eee;">{precaucao}</td>
                         </tr>
                     </table>
                 </div>
                 <div style="text-align: center; padding: 16px 24px; border-top: 1px solid #eee;">
                     <p style="font-size: 14px; color: #777; margin-bottom: 12px;"><em>Minha análise foi útil?</em></p>
-                    <a href="{link_correto}" style="display: inline-block; padding: 10px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 8px; margin-right: 8px; font-weight: 600; font-size: 14px;">Sim, acertou</a>
-                    <a href="{link_incorreto}" style="display: inline-block; padding: 10px 20px; background-color: #dc3545; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">Não, errou</a>
+                    <a class="btn-feedback" href="{link_correto}" style="display: inline-block; padding: 12px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 8px; margin-right: 8px; font-weight: 600; font-size: 14px; min-height: 44px; line-height: 20px;">Sim, acertou</a>
+                    <a class="btn-feedback" href="{link_incorreto}" style="display: inline-block; padding: 12px 20px; background-color: #dc3545; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; min-height: 44px; line-height: 20px;">Não, errou</a>
                 </div>
                 <div style="text-align: center; padding: 16px; border-top: 1px solid #f0f0f0;">
                     <img src="{larces_logo}" alt="LARCES - UECE" style="width: 100px; height: auto; opacity: 0.8;">
