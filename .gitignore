@@ -9,7 +9,7 @@ env/
 
 # Segurança 
 credentials.json
-token.json
+token*.json
 
 # Django
 *.sqlite3

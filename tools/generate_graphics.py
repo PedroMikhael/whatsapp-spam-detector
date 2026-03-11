@@ -1,3 +1,4 @@
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -77,7 +78,7 @@ def plotar_dispersao_7modelos(titulo, arquivo, d_gemini, d_3b, d_v1, d_v2, d_gem
     ax.set_ylim(20, 110) 
     
     plt.tight_layout()
-    plt.savefig(arquivo)
+    plt.savefig(os.path.join("media", arquivo))
     print(f"✅ Gráfico salvo: {arquivo}")
 
 plotar_dispersao_7modelos("SMS: Comparativo Geral de Performance", "scatter_sms_7modelos.png", 
@@ -129,7 +130,7 @@ def plotar_barras_7modelos():
     autolabel(r1); autolabel(r2); autolabel(r3); autolabel(r4); autolabel(r5); autolabel(r6); autolabel(r7)
 
     plt.tight_layout()
-    plt.savefig("barra_comparativa_7modelos.png")
-    print(f"✅ Gráfico salvo: barra_comparativa_7modelos.png")
+    plt.savefig(os.path.join("media", "barra_comparativa_7modelos.png"))
+    print(f"✅ Gráfico salvo: media/barra_comparativa_7modelos.png")
 
 plotar_barras_7modelos()

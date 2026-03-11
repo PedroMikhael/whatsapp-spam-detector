@@ -19,7 +19,7 @@ env/
 
 # Credentials (NUNCA enviar para o container)
 credentials.json
-token.json
+token*.json
 
 # IDE
 .vscode/

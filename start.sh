@@ -1,5 +1,5 @@
 #!/bin/bash
-# Startup script para rodar Django + Email Bot
+# Startup script para rodar Django + Email Bot (multi-conta)
 
 echo "===== Application Startup at $(date) ====="
 
@@ -15,12 +15,28 @@ else
     echo "Variáveis DJANGO_SUPERUSER_* não configuradas, pulando criação de superusuário."
 fi
 
-# Rodar o email bot em background (se TOKEN_JSON estiver configurado)
-if [ -n "$TOKEN_JSON" ]; then
+# ─── Email Bot (multi-conta) ───────────────────────────────────────
+# O email_bot.py detecta automaticamente quais contas estão configuradas:
+#   - TOKEN_JSON_UECE     → conta UECE
+#   - TOKEN_JSON_PESSOAL  → conta Pessoal
+#   - TOKEN_JSON          → fallback legado (conta única)
+#
+# Para desabilitar uma conta específica sem remover o token:
+#   - EMAIL_BOT_UECE_ENABLED=false
+#   - EMAIL_BOT_PESSOAL_ENABLED=false
+
+HAS_UECE=${TOKEN_JSON_UECE:+1}
+HAS_PESSOAL=${TOKEN_JSON_PESSOAL:+1}
+HAS_LEGACY=${TOKEN_JSON:+1}
+
+if [ -n "$HAS_UECE" ] || [ -n "$HAS_PESSOAL" ] || [ -n "$HAS_LEGACY" ]; then
     echo "Iniciando email_bot em background..."
+    [ -n "$HAS_UECE" ] && echo "  → Conta UECE: habilitada"
+    [ -n "$HAS_PESSOAL" ] && echo "  → Conta Pessoal: habilitada"
+    [ -n "$HAS_LEGACY" ] && [ -z "$HAS_UECE" ] && [ -z "$HAS_PESSOAL" ] && echo "  → Conta Legado: habilitada"
     python email_bot.py &
 else
-    echo "TOKEN_JSON não configurado, email_bot não será iniciado."
+    echo "Nenhum TOKEN_JSON configurado, email_bot não será iniciado."
 fi
 
 # Self-ping keep-alive (evita que o HF Space durma por inatividade)

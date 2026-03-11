@@ -2,6 +2,7 @@
 import os
 import time
 import base64
+import threading
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import re
@@ -24,56 +25,142 @@ from detector.models import Feedback
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 CHECK_INTERVAL_SECONDS = 10 
 
-def authenticate():
-    """Autentica com a API do Gmail usando o fluxo manual para servidores."""
-    creds = None
+# ─── Configuração das contas ────────────────────────────────────────
+# Cada conta é um dict com:
+#   - name: nome para exibir nos logs
+#   - token_file: caminho do arquivo token local
+#   - token_env: nome da variável de ambiente com o token JSON
+#   - enabled_env: variável de ambiente para habilitar/desabilitar (default: True)
+
+ACCOUNTS = [
+    {
+        "name": "UECE",
+        "token_file": "token_uece.json",
+        "token_env": "TOKEN_JSON_UECE",
+        "enabled_env": "EMAIL_BOT_UECE_ENABLED",
+    },
+    {
+        "name": "Pessoal",
+        "token_file": "token_pessoal.json",
+        "token_env": "TOKEN_JSON_PESSOAL",
+        "enabled_env": "EMAIL_BOT_PESSOAL_ENABLED",
+    },
+]
+
+
+# ─── Pré-processamento de emails ────────────────────────────────────
+
+def extrair_conteudo_original(email_body):
+    """Extrai o conteúdo real de um email, removendo cadeias de encaminhamento."""
+    FORWARD_SEPARATOR = "---------- Forwarded message ---------"
     
-    token_json_env = os.environ.get("TOKEN_JSON")
+    if FORWARD_SEPARATOR not in email_body:
+        return email_body.strip()
+    
+    # Pegar o último bloco de forwarding (mensagem original)
+    blocos = email_body.split(FORWARD_SEPARATOR)
+    ultimo_bloco = blocos[-1].strip()
+    
+    # Remover headers do forwarding (De:, Date:, Subject:, To:)
+    linhas = ultimo_bloco.split('\n')
+    conteudo_limpo = []
+    headers_a_pular = ('de:', 'from:', 'date:', 'subject:', 'to:', 'cc:', 'bcc:')
+    header_encontrado = False
+    
+    for linha in linhas:
+        linha_stripped = linha.strip().lower()
+        
+        # Pular linhas de header no início do bloco
+        if not header_encontrado and not linha_stripped:
+            continue  # Pular linhas vazias antes do conteúdo
+        
+        if any(linha_stripped.startswith(h) for h in headers_a_pular):
+            header_encontrado = True
+            continue
+        
+        # Após os headers, pular a próxima linha vazia (separador)
+        if header_encontrado and not linha_stripped:
+            header_encontrado = False
+            continue
+        
+        # Conteúdo real
+        header_encontrado = False
+        conteudo_limpo.append(linha)
+    
+    return '\n'.join(conteudo_limpo).strip()
+
+
+def is_mensagem_vazia(texto):
+    """Verifica se o conteúdo extraído é vazio ou sem substância."""
+    if not texto:
+        return True
+    # Remover espaços, tabs, newlines
+    limpo = texto.strip()
+    if len(limpo) < 5:  # Menos de 5 caracteres = vazio
+        return True
+    return False
+
+
+def authenticate(account):
+    """Autentica com a API do Gmail para uma conta específica."""
+    creds = None
+    account_name = account["name"]
+    token_file = account["token_file"]
+    token_env = account["token_env"]
+
+    print(f"[{account_name}] Iniciando autenticação...")
+
+    # 1) Tentar carregar token da variável de ambiente
+    token_json_env = os.environ.get(token_env)
     if token_json_env:
         try:
-            import json
             token_data = json.loads(token_json_env)
             creds = Credentials.from_authorized_user_info(token_data, SCOPES)
-            print("Token carregado de variável de ambiente.")
+            print(f"[{account_name}] Token carregado de variável de ambiente ({token_env}).")
         except Exception as e:
-            print(f"Erro ao carregar token de env: {e}")
-    
-    if not creds and os.path.exists("token.json"):
-        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+            print(f"[{account_name}] Erro ao carregar token de env: {e}")
 
+    # 2) Fallback: tentar carregar do arquivo local
+    if not creds and os.path.exists(token_file):
+        creds = Credentials.from_authorized_user_file(token_file, SCOPES)
+        print(f"[{account_name}] Token carregado de arquivo ({token_file}).")
+
+    # 3) Renovar ou solicitar autorização
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            print("Renovando token de acesso...")
+            print(f"[{account_name}] Renovando token de acesso...")
             creds.refresh(Request())
+            # Salvar no arquivo local se não veio de env
             if not token_json_env:
-                with open("token.json", "w") as token:
-                    token.write(creds.to_json())
+                with open(token_file, "w") as f:
+                    f.write(creds.to_json())
         else:
-            print("Nenhum token válido encontrado. Iniciando autorização manual.")
+            print(f"[{account_name}] Nenhum token válido encontrado. Iniciando autorização manual.")
             flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
             auth_url, _ = flow.authorization_url(prompt='consent')
             print('Por favor, visite este URL para autorizar o acesso:')
             print(auth_url)
-            code = input('Digite o código de autorização do navegador aqui: ')
+            code = input(f'[{account_name}] Digite o código de autorização do navegador aqui: ')
             flow.fetch_token(code=code)
             creds = flow.credentials
-            with open("token.json", "w") as token:
-                token.write(creds.to_json())
+            with open(token_file, "w") as f:
+                f.write(creds.to_json())
 
-    print("Autenticação bem-sucedida.")
+    print(f"[{account_name}] ✅ Autenticação bem-sucedida.")
     return build("gmail", "v1", credentials=creds)
 
-def check_and_process_emails(service):
+
+def check_and_process_emails(service, account_name="Bot"):
     """Verifica por e-mails não lidos, analisa com IA e responde."""
     try:
         results = service.users().messages().list(userId="me", labelIds=["INBOX"], q="is:unread").execute()
         messages = results.get("messages", [])
 
         if not messages:
-            print(f"[{time.strftime('%d/%m/%Y %H:%M:%S')}] Nenhum e-mail novo. Próxima verificação em {CHECK_INTERVAL_SECONDS}s.")
+            print(f"[{account_name}] [{time.strftime('%d/%m/%Y %H:%M:%S')}] Nenhum e-mail novo. Próxima verificação em {CHECK_INTERVAL_SECONDS}s.")
             return
 
-        print(f"\n[{time.strftime('%d/%m/%Y %H:%M:%S')}] 📬 {len(messages)} e-mail(s) não lido(s) encontrado(s)!")
+        print(f"\n[{account_name}] [{time.strftime('%d/%m/%Y %H:%M:%S')}] 📬 {len(messages)} e-mail(s) não lido(s) encontrado(s)!")
 
         for message_info in messages:
             msg = service.users().messages().get(userId="me", id=message_info["id"], format='full').execute()
@@ -83,7 +170,7 @@ def check_and_process_emails(service):
             sender = next((header["value"] for header in headers if header["name"].lower() == "from"), "Remetente Desconhecido")
 
             print(f"\n{'='*60}")
-            print(f" NOVO E-MAIL RECEBIDO")
+            print(f" [{account_name}] NOVO E-MAIL RECEBIDO")
             print(f"   De: {sender}")
             print(f"   Assunto: {subject}")
             print(f"   ID: {message_info['id']}")
@@ -98,11 +185,32 @@ def check_and_process_emails(service):
 
             email_body = base64.urlsafe_b64decode(email_body_encoded).decode("utf-8", errors='ignore')
             
-            preview = email_body[:200].replace('\n', ' ')
-            print(f"   Preview: {preview}...")
+            
+            conteudo_limpo = extrair_conteudo_original(email_body)
+            
+            preview = conteudo_limpo[:200].replace('\n', ' ')
+            print(f"   Preview (limpo): {preview}...")
 
+            
+            if is_mensagem_vazia(conteudo_limpo):
+                print(f"    ⚠️ Mensagem vazia detectada — respondendo sem IA.")
+                
+                nova_analise = Feedback.objects.create(
+                    mensagem_original=conteudo_limpo,
+                    remetente=sender,
+                    risco_ia="VAZIO",
+                    analise_ia="Mensagem vazia — nenhuma análise necessária."
+                )
+                
+                send_reply_vazio(service, sender, subject, nova_analise.id)
+                service.users().messages().modify(userId="me", id=message_info["id"], body={'removeLabelIds': ['UNREAD']}).execute()
+                print(f"    [{account_name}] Resposta (vazia) enviada e e-mail marcado como lido!")
+                print(f"{'='*60}\n")
+                continue
+
+            
             print(f"\n Analisando com IA...")
-            resultado_analise = analisar_com_IA(email_body)
+            resultado_analise = analisar_com_IA(conteudo_limpo)
             
             risk_level = resultado_analise.get('risk_level', 'INDETERMINADO')
             motivo = resultado_analise.get('motivo', 'Análise indisponível.')
@@ -112,7 +220,7 @@ def check_and_process_emails(service):
             print(f"    Motivo: {motivo[:150]}...")
 
             nova_analise = Feedback.objects.create(
-                mensagem_original=email_body,
+                mensagem_original=conteudo_limpo,
                 remetente=sender,
                 risco_ia=risk_level,
                 analise_ia=str(resultado_analise)
@@ -123,13 +231,13 @@ def check_and_process_emails(service):
             send_reply(service, sender, subject, motivo, precaucao, nova_analise.id, risk_level)
 
             service.users().messages().modify(userId="me", id=message_info["id"], body={'removeLabelIds': ['UNREAD']}).execute()
-            print(f"    Resposta enviada e e-mail marcado como lido!")
+            print(f"    [{account_name}] Resposta enviada e e-mail marcado como lido!")
             print(f"{'='*60}\n")
 
     except HttpError as error:
-        print(f"[{time.strftime('%d/%m/%Y %H:%M:%S')}] ❌ Erro na API do Gmail: {error}")
+        print(f"[{account_name}] [{time.strftime('%d/%m/%Y %H:%M:%S')}] ❌ Erro na API do Gmail: {error}")
     except Exception as e:
-        print(f"[{time.strftime('%d/%m/%Y %H:%M:%S')}] ❌ Erro inesperado: {e}")
+        print(f"[{account_name}] [{time.strftime('%d/%m/%Y %H:%M:%S')}] ❌ Erro inesperado: {e}")
 
 
 def _formatar_resposta_html(message_text):
@@ -254,13 +362,139 @@ def send_reply(service, to, subject, motivo, precaucao, feedback_id, risk_level=
     
     service.users().messages().send(userId="me", body=create_message).execute()
 
+
+def send_reply_vazio(service, to, subject, feedback_id):
+    """Envia resposta para emails com conteúdo vazio — sem chamar IA."""
+    
+    larces_logo = "https://huggingface.co/spaces/PedroMikhael/VerificAI/resolve/main/media/larcesLogo.png"
+    
+    html_content = f"""
+    <html>
+        <body style="font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; background: #f4f6f8; padding: 20px; margin: 0;">
+            <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+                <div style="background: #6c757d; color: white; text-align: center; padding: 24px 16px;">
+                    <h2 style="margin: 0; font-size: 20px;">Mensagem sem conteúdo</h2>
+                </div>
+                <div style="padding: 24px;">
+                    <p style="font-size: 15px; color: #333;">
+                        Olá! Recebi seu email, mas não encontrei nenhum conteúdo para analisar. 
+                        A mensagem parece estar vazia ou contém apenas dados de encaminhamento.
+                    </p>
+                    <p style="font-size: 15px; color: #333;">
+                        <strong>Para que eu possa ajudar:</strong> encaminhe o email suspeito 
+                        com o conteúdo original visível, ou cole o texto diretamente no corpo do email.
+                    </p>
+                </div>
+                <div style="text-align: center; padding: 16px; border-top: 1px solid #f0f0f0;">
+                    <img src="{larces_logo}" alt="LARCES - UECE" style="width: 100px; height: auto; opacity: 0.8;">
+                </div>
+            </div>
+        </body>
+    </html>
+    """
+    message = MIMEMultipart("alternative")
+    message["subject"] = f"Re: {subject}"
+    
+    match = re.search(r'<(.+?)>', to)
+    if match:
+        message["to"] = match.group(1)
+    else:
+        message["to"] = to
+        
+    message.attach(MIMEText(html_content, "html"))
+    encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+    create_message = {"raw": encoded_message}
+    
+    service.users().messages().send(userId="me", body=create_message).execute()
+
+
+def run_account_loop(service, account_name):
+    """Loop de monitoramento para uma conta específica. Roda em thread separada."""
+    print(f"[{account_name}] [{time.strftime('%d/%m/%Y %H:%M:%S')}] ✅ Monitorando e-mails...\n")
+    while True:
+        check_and_process_emails(service, account_name)
+        time.sleep(CHECK_INTERVAL_SECONDS)
+
+
+def get_enabled_accounts():
+    """Retorna lista das contas habilitadas (com token disponível)."""
+    enabled = []
+    for account in ACCOUNTS:
+        # Verificar se a conta está explicitamente desabilitada
+        enabled_flag = os.environ.get(account["enabled_env"], "true").strip().lower()
+        if enabled_flag in ("false", "0", "no", "off"):
+            print(f"[{account['name']}] ⏭️  Conta desabilitada via {account['enabled_env']}.")
+            continue
+
+        # Verificar se existe token (env ou arquivo)
+        has_token_env = bool(os.environ.get(account["token_env"]))
+        has_token_file = os.path.exists(account["token_file"])
+
+        if not has_token_env and not has_token_file:
+            print(f"[{account['name']}] ⚠️  Nenhum token encontrado ({account['token_env']} ou {account['token_file']}). Pulando.")
+            continue
+
+        enabled.append(account)
+
+    # Compatibilidade: se nenhuma conta nova foi encontrada, tentar TOKEN_JSON legado
+    if not enabled:
+        legacy_env = os.environ.get("TOKEN_JSON")
+        legacy_file = os.path.exists("token.json")
+        if legacy_env or legacy_file:
+            print("[Legado] Usando TOKEN_JSON / token.json (modo conta única).")
+            enabled.append({
+                "name": "Legado",
+                "token_file": "token.json",
+                "token_env": "TOKEN_JSON",
+                "enabled_env": "EMAIL_BOT_ENABLED",
+            })
+
+    return enabled
+
+
 if __name__ == "__main__":
     print(f"\n{'='*60}")
-    print(f" VerificAI Email Bot iniciado")
+    print(f" VerificAI Email Bot — Multi-Conta")
     print(f"   Intervalo de verificação: {CHECK_INTERVAL_SECONDS}s")
     print(f"{'='*60}\n")
-    gmail_service = authenticate()
-    print(f"[{time.strftime('%d/%m/%Y %H:%M:%S')}] ✅ Autenticação concluída. Monitorando e-mails...\n")
-    while True:
-        check_and_process_emails(gmail_service)
-        time.sleep(CHECK_INTERVAL_SECONDS)
+
+    enabled_accounts = get_enabled_accounts()
+
+    if not enabled_accounts:
+        print("❌ Nenhuma conta configurada. Configure TOKEN_JSON_UECE e/ou TOKEN_JSON_PESSOAL.")
+        sys.exit(1)
+
+    print(f"📧 {len(enabled_accounts)} conta(s) habilitada(s): {', '.join(a['name'] for a in enabled_accounts)}\n")
+
+    # Autenticar todas as contas primeiro
+    services = []
+    for account in enabled_accounts:
+        try:
+            service = authenticate(account)
+            services.append((service, account["name"]))
+        except Exception as e:
+            print(f"[{account['name']}] ❌ Falha na autenticação: {e}")
+
+    if not services:
+        print("❌ Nenhuma conta autenticada com sucesso.")
+        sys.exit(1)
+
+    # Se apenas uma conta, rodar direto (sem thread extra)
+    if len(services) == 1:
+        service, name = services[0]
+        run_account_loop(service, name)
+    else:
+        # Rodar cada conta em sua própria thread
+        threads = []
+        for service, name in services:
+            t = threading.Thread(target=run_account_loop, args=(service, name), daemon=True)
+            t.start()
+            threads.append(t)
+            print(f"[{name}] 🧵 Thread iniciada.")
+
+        # Manter o processo principal vivo
+        try:
+            while True:
+                time.sleep(60)
+        except KeyboardInterrupt:
+            print("\n🛑 Bot encerrado pelo usuário.")

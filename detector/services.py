@@ -192,14 +192,34 @@ PROMPT_SISTEMA = """
 """
 
 
+def _normalizar_texto(texto: str) -> str:
+    """Normaliza texto para comparações de duplicata:
+    - Remove espaços extras, tabs, múltiplas quebras de linha
+    - Lowercase
+    - Strip
+    """
+    import re as _re
+    normalizado = _re.sub(r'\s+', ' ', texto).strip().lower()
+    return normalizado
+
+
 def analisar_com_IA(texto: str, debug: bool = False) -> dict:
     """Analisa texto com Ollama (load balancing) ou Gemini (fallback).
     Se debug=True, retorna campos extras (para Swagger).
     """
     from .models import Feedback
 
-    # Verificar match exato no Django DB
-    feedback_existente = Feedback.objects.filter(mensagem_original=texto).first()
+    # Normalizar para busca de duplicatas
+    texto_normalizado = _normalizar_texto(texto)
+
+    # Verificar match no Django DB (usando texto normalizado)
+    feedbacks_existentes = Feedback.objects.all()
+    feedback_existente = None
+    for fb in feedbacks_existentes:
+        if _normalizar_texto(fb.mensagem_original) == texto_normalizado:
+            feedback_existente = fb
+            break
+    
     exemplo_exato = None
 
     if feedback_existente and feedback_existente.risco_ia:
